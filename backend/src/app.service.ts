@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from './prisma/prisma.service';
 
 @Injectable()
 export class AppService {
-  constructor(private prisma: PrismaService) {}
+  getHello(): string {
+    return 'Hello World! NestEgg API is running.';
+  }
 
-  async getHello(): Promise<string> {
-    const userCount = await this.prisma.user.count();
-    return `Hello World! There are ${userCount} users in the database.`;
+  getUsers() {
+    // Mock user data to demonstrate backend connection
+    return [
+      { id: 1, name: 'Admin User' },
+      { id: 2, name: 'Family Member 1' },
+      { id: 3, name: 'Family Member 2' }
+    ];
   }
 }

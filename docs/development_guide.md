@@ -18,14 +18,18 @@ This project is set up as a monorepo with a clear separation between the backend
     -   **API Proxying:** Frontend requests made to `/api` are automatically proxied to the backend service, avoiding CORS issues during development.
     -   **Shared Dependencies:** All `node_modules` are managed by the root `package.json` using npm Workspaces.
 
-### Production Environment (Conceptual)
+### Production Environment
 
-**Note:** This is not yet implemented, but it outlines the future direction.
-
-For production, we will build optimized, standalone Docker images.
--   The **backend** will be a compiled, minimal Node.js server.
--   The **frontend** will be compiled into static assets (HTML, CSS, JS) and served efficiently by a lightweight web server like **Nginx**.
--   The database will typically be a managed service for reliability and scalability.
+For production, we build optimized, standalone Docker images.
+-   **How to run:** `docker compose -f docker-compose.prod.yml up --build`
+-   **Services:**
+    -   **Frontend:** Nginx serving static React build at `http://localhost:80`.
+    -   **Backend:** Compiled NestJS server at `http://localhost:3000`.
+    -   **Database:** PostgreSQL (internal only).
+-   **Features:**
+    -   **Multi-stage builds** for optimized image sizes.
+    -   **Nginx reverse proxy** for API calls (`/api` → backend:3000).
+    -   **Production-optimized** React and NestJS builds.
 
 ---
 
@@ -38,8 +42,11 @@ For production, we will build optimized, standalone Docker images.
     This command will build the Docker images (if they don't exist) and start the frontend, backend, and database containers.
 
 2.  **Access the application:**
-    -   Open your browser and navigate to **`http://localhost:5173`**. You should see the React application running.
-    -   The backend API is accessible at `http://localhost:3000`.
+    -   Open your browser and navigate to **`http://localhost:5173`**. You should see the NestEgg React application with backend connection status.
+    -   The backend API is accessible at `http://localhost:3000` with endpoints:
+        -   `GET /` - Hello World message
+        -   `GET /users` - Mock user data
+        -   `GET /health` - Health check
 
 3.  **Start coding!**
     -   Modify frontend code in the `/frontend/src` directory.
@@ -56,7 +63,7 @@ For production, we will build optimized, standalone Docker images.
 
 ## 3. Running Tests
 
-We use Jest for the backend and Vitest for the frontend. You can run tests for each workspace from the project's root directory.
+We use Jest for the backend, Vitest for the frontend, and Playwright for E2E tests. You can run tests from the project's root directory.
 
 -   **Run all tests (Backend & Frontend):**
     ```bash
@@ -71,6 +78,11 @@ We use Jest for the backend and Vitest for the frontend. You can run tests for e
 -   **Run only Frontend tests:**
     ```bash
     npm test -w frontend
+    ```
+
+-   **Run E2E tests:**
+    ```bash
+    npm run e2e:run
     ```
 
 ---
@@ -97,3 +109,21 @@ We will use **Prisma** as our ORM to interact with the PostgreSQL database. Whil
     docker compose exec backend npx prisma studio
     ```
     This will launch Prisma Studio, typically on `http://localhost:5555`. You may need to ensure this port is exposed in the `docker-compose.yml` file if you have trouble accessing it.
+
+---
+
+## 5. Linting and Formatting
+
+To ensure code quality and consistency, we use **ESLint** for linting and **Prettier** for formatting. You can run these checks from the root directory.
+
+-   **Check for linting and formatting issues:**
+    ```bash
+    npm run lint
+    ```
+
+-   **Automatically fix issues:**
+    ```bash
+    npm run lint:fix
+    ```
+
+Please run these checks before committing your code to maintain a clean and consistent codebase.

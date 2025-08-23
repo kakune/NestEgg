@@ -18,6 +18,12 @@ dist
 out
 build
 
+# Testing
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Misc
 .DS_Store
 

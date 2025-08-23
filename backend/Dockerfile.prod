@@ -1,36 +1,54 @@
 # Production Dockerfile for Backend
 
 # ---- Builder Stage ----
-# This stage installs all dependencies (including dev), builds the app, and prunes dev dependencies.
 FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
 
-# Copy all source code
-COPY . .
+# Copy root package.json (for npm workspaces)
+COPY package.json package-lock.json* ./
 
-# Install all dependencies
+# Copy backend package.json
+COPY backend/package.json ./backend/
+
+# Install all dependencies from workspace root
 RUN npm install
 
-# Generate Prisma Client
-RUN npx prisma generate --schema=./backend/prisma/schema.prisma
+# Copy backend source code
+COPY backend/ ./backend/
+
+# Generate Prisma Client if schema exists
+RUN if [ -f "./backend/prisma/schema.prisma" ]; then \
+      cd backend && npx prisma generate; \
+    fi
 
 # Build the NestJS application
-RUN npm run build -w backend
-
-# Remove development dependencies
-RUN npm prune --production
-
+RUN cd backend && npm run build
 
 # ---- Production Stage ----
-# This stage copies only the built app and production node_modules from the builder stage.
 FROM node:20-alpine
 WORKDIR /usr/src/app
 
-# Copy pruned node_modules and built application from the builder stage
-COPY --from=builder /usr/src/app .
+# Copy root package.json (for workspace configuration)
+COPY package.json package-lock.json* ./
+COPY backend/package.json ./backend/
+
+# Install production dependencies
+RUN npm install --omit=dev
+
+# Copy built application from builder stage
+COPY --from=builder /usr/src/app/backend/dist ./backend/dist
+
+# Copy Prisma schema
+COPY --from=builder /usr/src/app/backend/prisma/ ./backend/prisma/
+
+# Copy Prisma generated client (it's generated to ./generated/prisma)
+COPY --from=builder /usr/src/app/backend/generated/ ./backend/generated/
 
 # Expose the port the app runs on
 EXPOSE 3000
 
+# Set working directory to backend
+WORKDIR /usr/src/app/backend
+
 # Start the app
-CMD ["node", "backend/dist/main"]
+CMD ["node", "dist/src/main.js"]

@@ -8,7 +8,11 @@
   ],
   "scripts": {
     "test": "npm run test -w backend && npm run test -w frontend",
-    "prepare": "husky install"
+    "prepare": "husky install || true",
+    "e2e:install": "playwright install",
+    "e2e:open": "playwright test --ui",
+    "e2e:run": "playwright test",
+    "e2e:docker": "PLAYWRIGHT_BASE_URL=http://localhost:8080 docker compose -f docker-compose.e2e.yml up --build -d && sleep 10 && PLAYWRIGHT_BASE_URL=http://localhost:8080 playwright test && docker compose -f docker-compose.e2e.yml down"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md,css,scss}": [
@@ -24,8 +28,14 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.2",
     "prettier": "^3.6.2"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }
