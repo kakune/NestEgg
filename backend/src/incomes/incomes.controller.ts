@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import {
   Controller,
   Get,
@@ -14,18 +13,58 @@ import {
 } from '@nestjs/common';
 import {
   IncomesService,
-  AuthContext,
   CreateIncomeDto,
   UpdateIncomeDto,
   IncomeFilters,
   IncomeWithDetails,
   IncomeStatistics,
 } from './incomes.service';
+import { AuthContext } from '../common/interfaces/auth-context.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { Income } from '@prisma/client';
+
+interface IncomeQueryParams {
+  userId?: string;
+  year?: string;
+  month?: string;
+  yearFrom?: string;
+  yearTo?: string;
+  minAllocatable?: string;
+  maxAllocatable?: string;
+  search?: string;
+  limit?: string;
+  offset?: string;
+  sortBy?: 'year' | 'month' | 'grossIncomeYen' | 'allocatableYen' | 'createdAt';
+  sortOrder?: 'asc' | 'desc';
+}
+
+interface StatisticsQueryParams {
+  userId?: string;
+  yearFrom?: string;
+  yearTo?: string;
+}
+
+interface YearQueryParams {
+  userId?: string;
+  month?: string;
+  limit?: string;
+  offset?: string;
+  sortBy?: 'year' | 'month' | 'grossIncomeYen' | 'allocatableYen' | 'createdAt';
+  sortOrder?: 'asc' | 'desc';
+}
+
+interface SearchQueryParams {
+  q?: string;
+  userId?: string;
+  year?: string;
+  yearFrom?: string;
+  yearTo?: string;
+  limit?: string;
+  offset?: string;
+}
 
 @Controller('incomes')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,7 +81,7 @@ export class IncomesController {
 
   @Get()
   async findAll(
-    @Query() query: any,
+    @Query() query: IncomeQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
     const authContext = this.getAuthContext(user);
@@ -75,7 +114,7 @@ export class IncomesController {
 
   @Get('statistics')
   async getStatistics(
-    @Query() query: any,
+    @Query() query: StatisticsQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeStatistics> {
     const authContext = this.getAuthContext(user);
@@ -108,7 +147,7 @@ export class IncomesController {
   @Get('user/:userId')
   async findByUser(
     @Param('userId') userId: string,
-    @Query() query: any,
+    @Query() query: IncomeQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
     const authContext = this.getAuthContext(user);
@@ -167,7 +206,7 @@ export class IncomesController {
   @Get('year/:year')
   async findByYear(
     @Param('year') year: string,
-    @Query() query: any,
+    @Query() query: YearQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
     const authContext = this.getAuthContext(user);
@@ -193,7 +232,7 @@ export class IncomesController {
   @Get('search')
   async searchIncomes(
     @Query('q') searchQuery: string,
-    @Query() query: any,
+    @Query() query: SearchQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
     const authContext = this.getAuthContext(user);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Controller,
   Get,
@@ -91,11 +90,7 @@ export class SettlementsController {
   }
 
   @Get('month/:year/:month')
-  findByMonth(
-    @Param('year') year: string,
-    @Param('month') month: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<SettlementWithLines | null> {
+  findByMonth(): Promise<SettlementWithLines | null> {
     // This will be implemented to find settlement by specific month
     // For now, return null
     return Promise.resolve(null);

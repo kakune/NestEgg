@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   NotFoundException,
@@ -435,11 +434,11 @@ export class SettlementsService {
 
     // Separate payers and receivers
     const payers = Array.from(workingBalances.entries())
-      .filter(([_, balance]) => balance < 0)
+      .filter(([, balance]) => balance < 0)
       .sort((a, b) => a[1] - b[1]); // Most negative first
 
     const receivers = Array.from(workingBalances.entries())
-      .filter(([_, balance]) => balance > 0)
+      .filter(([, balance]) => balance > 0)
       .sort((a, b) => b[1] - a[1]); // Most positive first
 
     const lines: CreateSettlementLineDto[] = [];

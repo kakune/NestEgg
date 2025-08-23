@@ -1,13 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/restrict-plus-operands, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-argument */
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Income, UserRole } from '@prisma/client';
+import { Income } from '@prisma/client';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
 
 export interface CreateIncomeDto {
@@ -279,7 +277,7 @@ export class IncomesService {
       ...updateIncomeDto,
     };
 
-    await this.validateIncomeUpdate(mergedDto, authContext);
+    this.validateIncomeUpdate(mergedDto);
 
     // Recalculate allocatable amount if gross income or deductions change
     let allocatableYen = existingIncome.allocatableYen;
@@ -288,9 +286,9 @@ export class IncomesService {
       updateIncomeDto.deductionYen !== undefined
     ) {
       const grossIncome =
-        updateIncomeDto.grossIncomeYen ?? existingIncome.grossIncomeYen;
+        updateIncomeDto.grossIncomeYen ?? Number(existingIncome.grossIncomeYen);
       const deduction =
-        updateIncomeDto.deductionYen ?? existingIncome.deductionYen;
+        updateIncomeDto.deductionYen ?? Number(existingIncome.deductionYen);
       allocatableYen = this.calculateAllocatableYen(grossIncome, deduction);
     }
 
@@ -388,16 +386,16 @@ export class IncomesService {
       ]);
 
       return {
-        totalGrossIncome: aggregates._sum.grossIncomeYen || 0,
-        totalDeductions: aggregates._sum.deductionYen || 0,
-        totalAllocatable: aggregates._sum.allocatableYen || 0,
-        averageMonthlyIncome: aggregates._avg.allocatableYen || 0,
+        totalGrossIncome: Number(aggregates._sum.grossIncomeYen) || 0,
+        totalDeductions: Number(aggregates._sum.deductionYen) || 0,
+        totalAllocatable: Number(aggregates._sum.allocatableYen) || 0,
+        averageMonthlyIncome: Number(aggregates._avg.allocatableYen) || 0,
         monthlyIncomes: monthlyData.map((item) => ({
-          year: item.year,
-          month: item.month,
-          grossIncome: item.grossIncomeYen,
-          deductions: item.deductionYen,
-          allocatable: item.allocatableYen,
+          year: Number(item.year),
+          month: Number(item.month),
+          grossIncome: Number(item.grossIncomeYen),
+          deductions: Number(item.deductionYen),
+          allocatable: Number(item.allocatableYen),
         })),
       };
     });
@@ -445,14 +443,14 @@ export class IncomesService {
             };
           }
 
-          acc[userKey].grossIncome += income.grossIncomeYen;
-          acc[userKey].deductions += income.deductionYen;
-          acc[userKey].allocatable += income.allocatableYen;
-          acc[userKey].months.push({
-            month: income.month,
-            grossIncome: income.grossIncomeYen,
-            deductions: income.deductionYen,
-            allocatable: income.allocatableYen,
+          acc[userKey].grossIncome += Number(income.grossIncomeYen);
+          acc[userKey].deductions += Number(income.deductionYen);
+          acc[userKey].allocatable += Number(income.allocatableYen);
+          (acc[userKey].months as any[]).push({
+            month: Number(income.month),
+            grossIncome: Number(income.grossIncomeYen),
+            deductions: Number(income.deductionYen),
+            allocatable: Number(income.allocatableYen),
           });
 
           return acc;
@@ -557,10 +555,7 @@ export class IncomesService {
     }
   }
 
-  private async validateIncomeUpdate(
-    mergedDto: Partial<CreateIncomeDto>,
-    authContext: AuthContext,
-  ): Promise<void> {
+  private validateIncomeUpdate(mergedDto: Partial<CreateIncomeDto>): void {
     const errors: string[] = [];
 
     // Validate amounts if provided

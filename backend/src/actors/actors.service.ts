@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
@@ -6,20 +5,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ActorType, Actor, UserRole } from '@prisma/client';
-
-// Type for Prisma aggregate result
-interface TransactionAggregate {
-  _sum: { amount: number | null };
-  _count: number;
-}
+import { ActorKind, Actor, UserRole } from '@prisma/client';
+import { AuthContext } from '../common/interfaces/auth-context.interface';
 
 // Type for actor statistics
 export interface ActorStatistics {
   actor: {
     id: string;
     name: string;
-    type: ActorType;
+    kind: ActorKind;
   };
   statistics: {
     totalTransactions: number;
@@ -41,22 +35,16 @@ export interface ActorWithUser extends Actor {
   } | null;
 }
 
-export interface AuthContext {
-  userId: string;
-  householdId: string;
-  role: UserRole;
-}
-
 export interface CreateActorDto {
   name: string;
-  type: ActorType;
+  kind: ActorKind;
   description?: string;
-  userId?: string; // Optional - for creating actors for other users (admin only)
+  userId?: string;
 }
 
 export interface UpdateActorDto {
   name?: string;
-  type?: ActorType;
+  kind?: ActorKind;
   description?: string;
 }
 
@@ -80,10 +68,10 @@ export class ActorsService {
           },
         },
         orderBy: [
-          { type: 'asc' }, // Sort by type first (individual, business, etc.)
+          { kind: 'asc' }, // Sort by kind first (USER, INSTRUMENT)
           { name: 'asc' }, // Then by name
         ],
-      }) as Promise<ActorWithUser[]>;
+      });
     });
   }
 
@@ -119,7 +107,7 @@ export class ActorsService {
         throw new NotFoundException('Actor not found');
       }
 
-      return actor as ActorWithUser;
+      return actor;
     });
   }
 
@@ -179,15 +167,23 @@ export class ActorsService {
       throw new BadRequestException('Actor with this name already exists');
     }
 
-    return this.prismaService.withContext(authContext, async (prisma) => {
+    return this.prismaService.withContext(authContext, (prisma) => {
+      const actorData: {
+        name: string;
+        kind: ActorKind;
+        description?: string;
+        householdId: string;
+        userId: string;
+      } = {
+        name: createActorDto.name,
+        kind: createActorDto.kind,
+        description: createActorDto.description,
+        householdId: authContext.householdId,
+        userId: targetUserId,
+      };
+
       return prisma.actor.create({
-        data: {
-          name: createActorDto.name,
-          type: createActorDto.type,
-          description: createActorDto.description,
-          householdId: authContext.householdId,
-          userId: targetUserId,
-        },
+        data: actorData,
         include: {
           user: {
             select: {
@@ -197,7 +193,7 @@ export class ActorsService {
             },
           },
         },
-      }) as Promise<ActorWithUser>;
+      });
     });
   }
 
@@ -237,7 +233,7 @@ export class ActorsService {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const updateData: Record<string, unknown> = {};
       if (updateActorDto.name) updateData.name = updateActorDto.name;
-      if (updateActorDto.type) updateData.type = updateActorDto.type;
+      if (updateActorDto.kind) updateData.kind = updateActorDto.kind;
       if (updateActorDto.description !== undefined)
         updateData.description = updateActorDto.description;
 
@@ -253,7 +249,7 @@ export class ActorsService {
             },
           },
         },
-      }) as Promise<ActorWithUser>;
+      });
     });
   }
 
@@ -309,7 +305,7 @@ export class ActorsService {
             },
             _sum: { amount: true },
             _count: true,
-          }) as Promise<TransactionAggregate>,
+          }),
 
           // Total expense transactions
           prisma.transaction.aggregate({
@@ -319,7 +315,7 @@ export class ActorsService {
             },
             _sum: { amount: true },
             _count: true,
-          }) as Promise<TransactionAggregate>,
+          }),
 
           // Recent transactions (last 30 days)
           prisma.transaction.count({
@@ -332,18 +328,25 @@ export class ActorsService {
           }),
         ]);
 
+      const actorInfo: {
+        id: string;
+        name: string;
+        kind: ActorKind;
+      } = {
+        id: actor.id,
+        name: actor.name,
+        kind: actor.kind,
+      };
+
       return {
-        actor: {
-          id: actor.id,
-          name: actor.name,
-          type: actor.type as ActorType,
-        },
+        actor: actorInfo,
         statistics: {
           totalTransactions: transactionCount,
-          totalIncome: totalIncome._sum.amount ?? 0,
-          totalExpenses: Math.abs(totalExpenses._sum.amount ?? 0),
+          totalIncome: (totalIncome._sum.amount ?? 0) as number,
+          totalExpenses: Math.abs((totalExpenses._sum.amount ?? 0) as number),
           netAmount:
-            (totalIncome._sum.amount ?? 0) + (totalExpenses._sum.amount ?? 0),
+            ((totalIncome._sum.amount ?? 0) as number) +
+            ((totalExpenses._sum.amount ?? 0) as number),
           incomeTransactionCount: totalIncome._count,
           expenseTransactionCount: totalExpenses._count,
           recentTransactions: recentTransactions,

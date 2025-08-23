@@ -88,9 +88,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Don't return password hash
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // Don't return password hash - omit passwordHash from result
     const { passwordHash, ...result } = user;
+    void passwordHash; // Explicitly mark as intentionally unused
     return result;
   }
 

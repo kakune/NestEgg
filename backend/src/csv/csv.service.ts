@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/restrict-template-expressions, no-case-declarations, @typescript-eslint/no-unused-vars */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
@@ -13,6 +12,23 @@ export interface AuthContext {
   userId: string;
   householdId: string;
   role: UserRole;
+}
+
+// Interface for CSV row data
+interface CsvRow {
+  [key: string]: string | number | boolean | Date | null | undefined;
+}
+
+// Interface for mapped row data
+interface MappedRowData {
+  amount?: string;
+  description?: string;
+  date?: string;
+  category?: string;
+  actor?: string;
+  type?: string;
+  notes?: string;
+  [key: string]: string | undefined;
 }
 
 export interface FieldMapping {
@@ -108,7 +124,7 @@ export class CsvService {
 
     for (let i = 0; i < Math.min(parsed.data.length, 1000); i++) {
       // Preview first 1000 rows
-      const row = parsed.data[i] as any;
+      const row = parsed.data[i] as CsvRow;
       const rowNumber = i + 2; // +2 for header and 1-based indexing
 
       try {
@@ -150,13 +166,14 @@ export class CsvService {
             })),
           );
         }
-      } catch (error) {
+      } catch (error: unknown) {
         preview.invalidRows++;
         preview.errors.push({
           row: rowNumber,
           field: 'general',
           value: '',
-          message: error.message || 'Unknown error occurred',
+          message:
+            error instanceof Error ? error.message : 'Unknown error occurred',
         });
       }
     }
@@ -194,7 +211,7 @@ export class CsvService {
     const processedHashes = new Set<string>();
 
     for (let i = 0; i < parsed.data.length; i++) {
-      const row = parsed.data[i] as any;
+      const row = parsed.data[i] as CsvRow;
       const rowNumber = i + 2;
 
       try {
@@ -241,13 +258,16 @@ export class CsvService {
 
         result.successful++;
         processedHashes.add(sourceHash);
-      } catch (error) {
+      } catch (error: unknown) {
         result.failed++;
         result.errors.push({
           row: rowNumber,
           field: 'general',
           value: '',
-          message: error.message || 'Failed to create transaction',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Failed to create transaction',
         });
       }
     }
@@ -267,18 +287,24 @@ export class CsvService {
 
     const exportData = transactions.map((transaction) => ({
       id: transaction.id,
-      amount: transaction.amount,
+      amount: Number(transaction.amount),
       type: transaction.type,
-      description: transaction.description,
-      date: this.formatDate(transaction.date, options.dateFormat),
+      description: String(transaction.description),
+      date: this.formatDate(
+        new Date(String(transaction.date)),
+        String(options.dateFormat),
+      ),
       category: transaction.category.name,
       categoryId: transaction.categoryId,
       actor: transaction.actor.name,
-      actorId: transaction.actorId,
+      actorId: String(transaction.actorId),
       tags: transaction.tags.join(';'),
-      notes: transaction.notes || '',
+      notes: String(transaction.notes || ''),
       shouldPay: transaction.shouldPay,
-      createdAt: this.formatDate(transaction.createdAt, options.dateFormat),
+      createdAt: this.formatDate(
+        transaction.createdAt,
+        String(options.dateFormat),
+      ),
     }));
 
     if (options.format === 'json') {
@@ -318,7 +344,7 @@ export class CsvService {
     };
 
     for (let i = 0; i < parsed.data.length; i++) {
-      const row = parsed.data[i] as any;
+      const row = parsed.data[i] as CsvRow;
       const rowNumber = i + 2;
 
       try {
@@ -353,7 +379,7 @@ export class CsvService {
             result.errors.push({
               row: rowNumber,
               field: 'duplicate',
-              value: `${mappedData.userId}-${mappedData.year}-${mappedData.month}`,
+              value: `${String(mappedData.userId || '')}-${String(mappedData.year || '')}-${String(mappedData.month || '')}`,
               message: 'Income for this user/month already exists',
             });
           }
@@ -363,13 +389,14 @@ export class CsvService {
         // Create income
         await this.incomesService.create(mappedData, authContext);
         result.successful++;
-      } catch (error) {
+      } catch (error: unknown) {
         result.failed++;
         result.errors.push({
           row: rowNumber,
           field: 'general',
           value: '',
-          message: error.message || 'Failed to create income',
+          message:
+            error instanceof Error ? error.message : 'Failed to create income',
         });
       }
     }
@@ -389,13 +416,13 @@ export class CsvService {
       userId: income.userId,
       userName: income.user.name,
       userEmail: income.user.email,
-      grossIncomeYen: income.grossIncomeYen,
-      deductionYen: income.deductionYen,
-      allocatableYen: income.allocatableYen,
-      year: income.year,
-      month: income.month,
-      description: income.description || '',
-      sourceDocument: income.sourceDocument || '',
+      grossIncomeYen: Number(income.grossIncomeYen),
+      deductionYen: Number(income.deductionYen),
+      allocatableYen: Number(income.allocatableYen),
+      year: Number(income.year),
+      month: Number(income.month),
+      description: String(income.description || ''),
+      sourceDocument: String(income.sourceDocument || ''),
       createdAt: this.formatDate(income.createdAt, options.dateFormat),
     }));
 
@@ -409,12 +436,8 @@ export class CsvService {
   }
 
   // Utility methods
-  private mapRowData(
-    row: Record<string, string>,
-    fieldMapping: FieldMapping[],
-  ): Record<string, string | number | boolean | Date | null> {
-    const mappedData: Record<string, string | number | boolean | Date | null> =
-      {};
+  private mapRowData(row: CsvRow, fieldMapping: FieldMapping[]): MappedRowData {
+    const mappedData: MappedRowData = {};
 
     for (const mapping of fieldMapping) {
       const csvValue = row[mapping.csvField];
@@ -453,19 +476,21 @@ export class CsvService {
     enumValues?: string[],
   ): string | number | boolean | Date | null {
     switch (transform) {
-      case 'date':
+      case 'date': {
         const date = new Date(value);
         if (isNaN(date.getTime())) {
           throw new BadRequestException(`Invalid date format: ${value}`);
         }
         return date;
+      }
 
-      case 'number':
-        const num = parseFloat(value);
+      case 'number': {
+        const num = parseFloat(String(value));
         if (isNaN(num)) {
           throw new BadRequestException(`Invalid number format: ${value}`);
         }
         return num;
+      }
 
       case 'boolean':
         return ['true', '1', 'yes', 'y'].includes(
@@ -525,7 +550,7 @@ export class CsvService {
     // Validate category exists
     try {
       await this.categoriesService.findOne(data.categoryId, authContext);
-    } catch (error) {
+    } catch {
       errors.push({
         row: 0,
         field: 'categoryId',
@@ -537,7 +562,7 @@ export class CsvService {
     // Validate actor exists
     try {
       await this.actorsService.findOne(data.actorId, authContext);
-    } catch (error) {
+    } catch {
       errors.push({
         row: 0,
         field: 'actorId',

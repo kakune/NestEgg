@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
@@ -41,7 +40,7 @@ describe('CategoriesController', () => {
     getCategoryTree: jest.fn(),
     getCategoryPath: jest.fn(),
     getCategoryStats: jest.fn(),
-  } as jest.Mocked<CategoriesService>;
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
