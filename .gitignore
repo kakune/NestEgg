@@ -6,6 +6,8 @@
 
 # Build and compilation output
 /dist
+/backend/dist
+/frontend/dist
 /build
 /out
 /.next/
