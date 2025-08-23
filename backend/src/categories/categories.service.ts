@@ -1,17 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-plus-operands */
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Category, UserRole } from '@prisma/client';
-
-export interface AuthContext {
-  userId: string;
-  householdId: string;
-  role: UserRole;
-}
+import { Category } from '@prisma/client';
+import { AuthContext } from '../common/interfaces/auth-context.interface';
 
 export interface CreateCategoryDto {
   name: string;
@@ -28,6 +22,23 @@ export interface UpdateCategoryDto {
 export interface CategoryWithChildren extends Category {
   children?: CategoryWithChildren[];
   parent?: Category;
+}
+
+export interface CategoryStatistics {
+  category: {
+    id: string;
+    name: string;
+    parent?: Category;
+  };
+  statistics: {
+    directTransactions: number;
+    directAmount: number;
+    descendantTransactions: number;
+    descendantAmount: number;
+    totalTransactions: number;
+    totalAmount: number;
+    childrenCount: number;
+  };
 }
 
 @Injectable()
@@ -337,13 +348,13 @@ export class CategoriesService {
     let currentCategoryId: string | null = categoryId;
 
     while (currentCategoryId) {
-      const category = await this.prismaService.prisma.category.findFirst({
+      const category = (await this.prismaService.prisma.category.findFirst({
         where: {
           id: currentCategoryId,
           householdId: authContext.householdId,
         },
         select: { parentId: true },
-      });
+      })) as { parentId: string | null } | null;
 
       if (!category) break;
 
@@ -402,7 +413,10 @@ export class CategoriesService {
     return descendants;
   }
 
-  async getCategoryStats(id: string, authContext: AuthContext): Promise<any> {
+  async getCategoryStats(
+    id: string,
+    authContext: AuthContext,
+  ): Promise<CategoryStatistics> {
     const category = await this.findOne(id, authContext);
 
     return this.prismaService.withContext(authContext, async (prisma) => {
@@ -434,8 +448,8 @@ export class CategoriesService {
           _count: true,
         });
 
-        descendantTransactionCount += descendantStats._count || 0;
-        descendantTotalAmount += descendantStats._sum.amount || 0;
+        descendantTransactionCount += Number(descendantStats._count) || 0;
+        descendantTotalAmount += Number(descendantStats._sum.amount) || 0;
       }
 
       return {
@@ -446,12 +460,13 @@ export class CategoriesService {
         },
         statistics: {
           directTransactions: transactionCount || 0,
-          directAmount: totalAmount._sum.amount || 0,
+          directAmount: Number(totalAmount._sum.amount) || 0,
           descendantTransactions: descendantTransactionCount,
           descendantAmount: descendantTotalAmount,
           totalTransactions:
             (transactionCount || 0) + descendantTransactionCount,
-          totalAmount: (totalAmount._sum.amount || 0) + descendantTotalAmount,
+          totalAmount:
+            (Number(totalAmount._sum.amount) || 0) + descendantTotalAmount,
           childrenCount: descendants.length,
         },
       };

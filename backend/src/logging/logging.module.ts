@@ -1,7 +1,22 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+
+interface PinoRequest {
+  method: string;
+  url: string;
+  params: unknown;
+  query: unknown;
+  user?: {
+    id: string;
+    householdId: string;
+  };
+  headers: Record<string, string | undefined>;
+}
+
+interface PinoResponse {
+  statusCode: number;
+}
 
 @Module({
   imports: [
@@ -22,17 +37,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
             },
           }),
           serializers: {
-            req: (req: any) => ({
+            req: (req: PinoRequest) => ({
               method: req.method,
               url: req.url,
               params: req.params,
               query: req.query,
             }),
-            res: (res: any) => ({
+            res: (res: PinoResponse) => ({
               statusCode: res.statusCode,
             }),
           },
-          customProps: (req: any) => ({
+          customProps: (req: PinoRequest) => ({
             userId: req.user?.id,
             householdId: req.user?.householdId,
             requestId: req.headers['x-request-id'],

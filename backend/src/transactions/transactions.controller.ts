@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import {
   TransactionsService,
-  AuthContext,
   TransactionFilters,
   TransactionWithDetails,
 } from './transactions.service';
@@ -21,6 +20,7 @@ import type {
   CreateTransactionDto,
   UpdateTransactionDto,
 } from './transactions.service';
+import { AuthContext } from '../common/interfaces/auth-context.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';

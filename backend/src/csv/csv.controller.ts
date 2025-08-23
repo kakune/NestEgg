@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Controller,
   Post,
@@ -263,7 +262,7 @@ export class CsvController {
 
     const options: ExportOptions = {
       format: query.format === 'json' ? 'json' : 'csv',
-      dateFormat: query.dateFormat || 'iso',
+      dateFormat: (query.dateFormat as string) || 'iso',
       includeHeaders: query.includeHeaders !== 'false',
     };
 

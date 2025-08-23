@@ -1,0 +1,283 @@
+
+> backend@0.0.1 lint
+> eslint "{src,apps,libs,test}/**/*.ts" --fix
+
+
+/home/junya/Workspace/NestEgg/backend/src/actors/actors.service.ts
+  179:11  error  Unsafe assignment of an error typed value  @typescript-eslint/no-unsafe-assignment
+  332:11  error  Unsafe assignment of an error typed value  @typescript-eslint/no-unsafe-assignment
+
+/home/junya/Workspace/NestEgg/backend/src/categories/categories.service.spec.ts
+   94:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+   94:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  112:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  112:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  115:28  error  Unsafe member access .householdId on an `any` value                   @typescript-eslint/no-unsafe-member-access
+  136:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  136:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  150:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  150:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  164:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  164:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  167:28  error  Unsafe member access .householdId on an `any` value                   @typescript-eslint/no-unsafe-member-access
+  168:28  error  Unsafe member access .id on an `any` value                            @typescript-eslint/no-unsafe-member-access
+  188:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  188:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  229:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  229:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  309:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  309:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  317:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  317:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  353:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  353:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  381:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  381:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  419:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  419:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  454:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  454:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  462:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  462:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  491:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  491:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  514:9   error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  514:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  549:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  549:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  557:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  557:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  584:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  584:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  592:11  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  592:18  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  606:13  error  Unsafe assignment of an `any` value                                   @typescript-eslint/no-unsafe-assignment
+  611:21  error  Unsafe member access .category on an `any` value                      @typescript-eslint/no-unsafe-member-access
+  612:21  error  Unsafe member access .statistics on an `any` value                    @typescript-eslint/no-unsafe-member-access
+  613:21  error  Unsafe member access .statistics on an `any` value                    @typescript-eslint/no-unsafe-member-access
+  626:15  error  Unsafe assignment of an `any` value                                   @typescript-eslint/no-unsafe-assignment
+  626:29  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  626:46  error  Unsafe member access .getCategoryDepth on an `any` value              @typescript-eslint/no-unsafe-member-access
+  645:11  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  645:28  error  Unsafe member access .getCategoryDepth on an `any` value              @typescript-eslint/no-unsafe-member-access
+  656:15  error  Unsafe assignment of an `any` value                                   @typescript-eslint/no-unsafe-assignment
+  656:30  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  656:47  error  Unsafe member access .wouldCreateCircularReference on an `any` value  @typescript-eslint/no-unsafe-member-access
+  668:15  error  Unsafe assignment of an `any` value                                   @typescript-eslint/no-unsafe-assignment
+  668:30  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  668:47  error  Unsafe member access .wouldCreateCircularReference on an `any` value  @typescript-eslint/no-unsafe-member-access
+  689:15  error  Unsafe assignment of an `any` value                                   @typescript-eslint/no-unsafe-assignment
+  689:35  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  689:52  error  Unsafe member access .getAllDescendants on an `any` value             @typescript-eslint/no-unsafe-member-access
+  695:16  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  695:28  error  Unsafe member access .map on an `any` value                           @typescript-eslint/no-unsafe-member-access
+  695:44  error  Unsafe return of a value of type `any`                                @typescript-eslint/no-unsafe-return
+  695:46  error  Unsafe member access .id on an `any` value                            @typescript-eslint/no-unsafe-member-access
+  712:15  error  Unsafe assignment of an `any` value                                   @typescript-eslint/no-unsafe-assignment
+  712:35  error  Unsafe call of a(n) `any` typed value                                 @typescript-eslint/no-unsafe-call
+  712:52  error  Unsafe member access .getAllDescendants on an `any` value             @typescript-eslint/no-unsafe-member-access
+  718:28  error  Unsafe member access [0] on an `any` value                            @typescript-eslint/no-unsafe-member-access
+
+/home/junya/Workspace/NestEgg/backend/src/categories/categories.service.ts
+  350:7   error  Unsafe assignment of an `any` value                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unsafe-assignment
+  350:36  error  Unsafe member access .parentId on an `any` value                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unsafe-member-access
+  436:39  error  Invalid operand for a '+' operation. Operands must each be a number or string, allowing a string + any of: `any`, `boolean`, `null`, `RegExp`, `undefined`. Got `{ id?: number; householdId?: number; type?: number; amountYen?: number; occurredOn?: number; bookedAt?: number; categoryId?: number; payerActorId?: number; payerUserId?: number; shouldPay?: number; shouldPayUserId?: number; ... 6 more ...; _all?: number; }`  @typescript-eslint/restrict-plus-operands
+  448:11  error  Unsafe assignment of an error typed value                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unsafe-assignment
+  453:11  error  Unsafe assignment of an error typed value                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unsafe-assignment
+
+/home/junya/Workspace/NestEgg/backend/src/csv/csv.controller.ts
+  265:7  error  Unsafe assignment of an error typed value  @typescript-eslint/no-unsafe-assignment
+
+/home/junya/Workspace/NestEgg/backend/src/csv/csv.service.ts
+  110:13  error    Unsafe assignment of an `any` value                                                                @typescript-eslint/no-unsafe-assignment
+  114:44  warning  Unsafe argument of type `any` assigned to a parameter of type `Record<string, string>`             @typescript-eslint/no-unsafe-argument
+  158:11  error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  196:13  error    Unsafe assignment of an `any` value                                                                @typescript-eslint/no-unsafe-assignment
+  200:44  warning  Unsafe argument of type `any` assigned to a parameter of type `Record<string, string>`             @typescript-eslint/no-unsafe-argument
+  249:11  error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  269:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  271:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  272:29  warning  Unsafe argument of type error typed assigned to a parameter of type `Date`                         @typescript-eslint/no-unsafe-argument
+  276:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  278:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  320:13  error    Unsafe assignment of an `any` value                                                                @typescript-eslint/no-unsafe-assignment
+  324:44  warning  Unsafe argument of type `any` assigned to a parameter of type `Record<string, string>`             @typescript-eslint/no-unsafe-argument
+  355:25  error    Invalid type "string | number | boolean | Date | null | undefined" of template literal expression  @typescript-eslint/restrict-template-expressions
+  355:46  error    Invalid type "string | number | boolean | Date | null | undefined" of template literal expression  @typescript-eslint/restrict-template-expressions
+  355:65  error    Invalid type "string | number | boolean | Date | null | undefined" of template literal expression  @typescript-eslint/restrict-template-expressions
+  371:11  error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  391:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  392:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  394:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  396:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  397:7   error    Unsafe assignment of an error typed value                                                          @typescript-eslint/no-unsafe-assignment
+  456:9   error    Unexpected lexical declaration in case block                                                       no-case-declarations
+  463:9   error    Unexpected lexical declaration in case block                                                       no-case-declarations
+  527:14  error    'error' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+  539:14  error    'error' is defined but never used                                                                  @typescript-eslint/no-unused-vars
+
+/home/junya/Workspace/NestEgg/backend/src/incomes/incomes.controller.ts
+   47:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+   49:7   error    Unsafe assignment of an `any` value                                                @typescript-eslint/no-unsafe-assignment
+   49:21  error    Unsafe member access .userId on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   50:19  error    Unsafe member access .year on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+   50:35  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   50:41  error    Unsafe member access .year on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+   51:20  error    Unsafe member access .month on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+   51:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   51:43  error    Unsafe member access .month on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+   52:23  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+   52:43  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   52:49  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+   53:21  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   53:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   53:45  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   54:29  error    Unsafe member access .minAllocatable on an `any` value                             @typescript-eslint/no-unsafe-member-access
+   55:20  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   55:26  error    Unsafe member access .minAllocatable on an `any` value                             @typescript-eslint/no-unsafe-member-access
+   57:29  error    Unsafe member access .maxAllocatable on an `any` value                             @typescript-eslint/no-unsafe-member-access
+   58:20  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   58:26  error    Unsafe member access .maxAllocatable on an `any` value                             @typescript-eslint/no-unsafe-member-access
+   60:7   error    Unsafe assignment of an `any` value                                                @typescript-eslint/no-unsafe-assignment
+   60:21  error    Unsafe member access .search on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   61:20  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+   61:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   61:43  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+   62:21  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   62:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   62:45  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   63:21  error    Unsafe member access .sortBy on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   69:24  error    Unsafe member access .sortOrder on an `any` value                                  @typescript-eslint/no-unsafe-member-access
+   72:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+   80:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+   82:7   error    Unsafe assignment of an `any` value                                                @typescript-eslint/no-unsafe-assignment
+   82:21  error    Unsafe member access .userId on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   83:23  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+   83:43  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   83:49  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+   84:21  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   84:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+   84:45  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+   87:61  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+   96:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  103:7   warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  113:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  116:19  error    Unsafe member access .year on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+  116:35  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  116:41  error    Unsafe member access .year on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+  117:20  error    Unsafe member access .month on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  117:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  117:43  error    Unsafe member access .month on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  118:23  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+  118:43  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  118:49  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+  119:21  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  119:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  119:45  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  120:20  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  120:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  120:43  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  121:21  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  121:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  121:45  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  122:21  error    Unsafe member access .sortBy on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  128:24  error    Unsafe member access .sortOrder on an `any` value                                  @typescript-eslint/no-unsafe-member-access
+  131:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  140:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  148:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  162:7   warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  172:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  175:20  error    Unsafe member access .month on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  175:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  175:43  error    Unsafe member access .month on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  176:7   error    Unsafe assignment of an `any` value                                                @typescript-eslint/no-unsafe-assignment
+  176:21  error    Unsafe member access .userId on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  177:20  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  177:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  177:43  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  178:21  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  178:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  178:45  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  180:16  error    Unsafe member access .sortBy on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  186:25  error    Unsafe member access .sortOrder on an `any` value                                  @typescript-eslint/no-unsafe-member-access
+  189:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  198:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  201:7   error    Unsafe assignment of an `any` value                                                @typescript-eslint/no-unsafe-assignment
+  201:21  error    Unsafe member access .userId on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  202:19  error    Unsafe member access .year on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+  202:35  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  202:41  error    Unsafe member access .year on an `any` value                                       @typescript-eslint/no-unsafe-member-access
+  203:23  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+  203:43  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  203:49  error    Unsafe member access .yearFrom on an `any` value                                   @typescript-eslint/no-unsafe-member-access
+  204:21  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  204:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  204:45  error    Unsafe member access .yearTo on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  205:20  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  205:37  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  205:43  error    Unsafe member access .limit on an `any` value                                      @typescript-eslint/no-unsafe-member-access
+  206:21  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  206:39  warning  Unsafe argument of type `any` assigned to a parameter of type `string`             @typescript-eslint/no-unsafe-argument
+  206:45  error    Unsafe member access .offset on an `any` value                                     @typescript-eslint/no-unsafe-member-access
+  211:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  219:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  226:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  234:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  243:49  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  251:44  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  262:7   warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  272:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  276:62  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  299:7   warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  309:42  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  319:11  error    Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+  326:64  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+  330:53  warning  Unsafe argument of type error typed assigned to a parameter of type `AuthContext`  @typescript-eslint/no-unsafe-argument
+
+/home/junya/Workspace/NestEgg/backend/src/incomes/incomes.service.ts
+    5:3   error    'ForbiddenException' is defined but never used                                                           @typescript-eslint/no-unused-vars
+    9:18  error    'UserRole' is defined but never used                                                                     @typescript-eslint/no-unused-vars
+  289:13  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  291:13  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  293:53  warning  Unsafe argument of type error typed assigned to a parameter of type `number`                             @typescript-eslint/no-unsafe-argument
+  293:66  warning  Unsafe argument of type error typed assigned to a parameter of type `number`                             @typescript-eslint/no-unsafe-argument
+  390:9   error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  391:9   error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  395:11  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  397:11  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  398:11  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  449:11  error    Numeric '+' operations must either be both bigints or both numbers. Got `number | undefined` + `bigint`  @typescript-eslint/restrict-plus-operands
+  450:11  error    Unsafe call of a(n) `error` type typed value                                                             @typescript-eslint/no-unsafe-call
+  452:13  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  453:13  error    Unsafe assignment of an error typed value                                                                @typescript-eslint/no-unsafe-assignment
+  561:5   error    '_authContext' is defined but never used                                                                 @typescript-eslint/no-unused-vars
+
+/home/junya/Workspace/NestEgg/backend/src/settlements/settlements.controller.ts
+  94:20  error  '_year' is defined but never used   @typescript-eslint/no-unused-vars
+  95:21  error  '_month' is defined but never used  @typescript-eslint/no-unused-vars
+  96:20  error  '_user' is defined but never used   @typescript-eslint/no-unused-vars
+
+/home/junya/Workspace/NestEgg/backend/src/transactions/transactions.service.ts
+  442:9   error    Unsafe assignment of an error typed value                                     @typescript-eslint/no-unsafe-assignment
+  443:33  warning  Unsafe argument of type error typed assigned to a parameter of type `number`  @typescript-eslint/no-unsafe-argument
+  444:9   error    Unsafe assignment of an error typed value                                     @typescript-eslint/no-unsafe-assignment
+  446:9   error    Unsafe assignment of an error typed value                                     @typescript-eslint/no-unsafe-assignment
+
+/home/junya/Workspace/NestEgg/backend/test/app.e2e-spec.ts
+  31:11  error  Unsafe assignment of an error typed value               @typescript-eslint/no-unsafe-assignment
+  31:28  error  Unsafe call of a(n) `error` type typed value            @typescript-eslint/no-unsafe-call
+  31:28  error  Unsafe call of a(n) `error` type typed value            @typescript-eslint/no-unsafe-call
+  31:28  error  Unsafe call of a(n) `error` type typed value            @typescript-eslint/no-unsafe-call
+  33:8   error  Unsafe member access .get on an `error` typed value     @typescript-eslint/no-unsafe-member-access
+  34:8   error  Unsafe member access .expect on an `error` typed value  @typescript-eslint/no-unsafe-member-access
+  36:21  error  Unsafe member access .text on an `error` typed value    @typescript-eslint/no-unsafe-member-access
+
+✖ 249 problems (201 errors, 48 warnings)
+
+npm error Lifecycle script `lint` failed with error:
+npm error code 1
+npm error path /home/junya/Workspace/NestEgg/backend
+npm error workspace backend@0.0.1
+npm error location /home/junya/Workspace/NestEgg/backend
+npm error command failed
+npm error command sh -c eslint "{src,apps,libs,test}/**/*.ts" --fix

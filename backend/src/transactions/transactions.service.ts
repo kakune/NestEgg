@@ -1,13 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Transaction, TransactionType, UserRole } from '@prisma/client';
+import { Transaction, TransactionType } from '@prisma/client';
 import { ActorsService } from '../actors/actors.service';
 import { CategoriesService } from '../categories/categories.service';
+import { AuthContext } from '../common/interfaces/auth-context.interface';
 import * as crypto from 'crypto';
 
 // Type for Prisma where clause
@@ -60,12 +60,6 @@ interface TransactionSummary {
   averageTransaction: number;
   incomeCount: number;
   expenseCount: number;
-}
-
-export interface AuthContext {
-  userId: string;
-  householdId: string;
-  role: UserRole;
 }
 
 export interface CreateTransactionDto {
@@ -440,11 +434,12 @@ export class TransactionsService {
 
       return {
         totalTransactions: totalCount,
-        totalIncome: totalIncome._sum.amount || 0,
-        totalExpenses: Math.abs(totalExpenses._sum.amount || 0),
+        totalIncome: Number(totalIncome._sum.amount) || 0,
+        totalExpenses: Math.abs(Number(totalExpenses._sum.amount) || 0),
         netAmount:
-          (totalIncome._sum.amount || 0) + (totalExpenses._sum.amount || 0),
-        averageTransaction: avgTransaction._avg.amount || 0,
+          (Number(totalIncome._sum.amount) || 0) +
+          (Number(totalExpenses._sum.amount) || 0),
+        averageTransaction: Number(avgTransaction._avg.amount) || 0,
         incomeCount: totalIncome._count,
         expenseCount: totalExpenses._count,
       };
