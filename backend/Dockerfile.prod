@@ -1,0 +1,36 @@
+# Production Dockerfile for Backend
+
+# ---- Builder Stage ----
+# This stage installs all dependencies (including dev), builds the app, and prunes dev dependencies.
+FROM node:20-alpine AS builder
+WORKDIR /usr/src/app
+
+# Copy all source code
+COPY . .
+
+# Install all dependencies
+RUN npm install
+
+# Generate Prisma Client
+RUN npx prisma generate --schema=./backend/prisma/schema.prisma
+
+# Build the NestJS application
+RUN npm run build -w backend
+
+# Remove development dependencies
+RUN npm prune --production
+
+
+# ---- Production Stage ----
+# This stage copies only the built app and production node_modules from the builder stage.
+FROM node:20-alpine
+WORKDIR /usr/src/app
+
+# Copy pruned node_modules and built application from the builder stage
+COPY --from=builder /usr/src/app .
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Start the app
+CMD ["node", "backend/dist/main"]

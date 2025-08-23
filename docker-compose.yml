@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    image: node:20-alpine
+    working_dir: /usr/src/app
+    command: sh -c "cd backend && npm install && npm run start:dev"
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - '3000:3000'
+    depends_on:
+      - db
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /usr/src/app
+    command: sh -c "cd frontend && npm install && npm run dev -- --host"
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - '5173:5173'
+
+volumes:
+  postgres_data:

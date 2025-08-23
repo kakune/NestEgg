@@ -1,0 +1,24 @@
+# Dependencies
+/node_modules
+
+# Docker
+.docker
+
+# ENV
+.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+dist
+.next
+out
+build
+
+# Misc
+.DS_Store
+
+/generated/prisma
