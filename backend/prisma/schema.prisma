@@ -1,12 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// NestEgg Prisma Schema
+// Comprehensive household budgeting application schema
+// Based on database_schema.md specification
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -14,10 +11,320 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums
+enum UserRole {
+  admin
+  member
+
+  @@map("user_role")
+}
+
+enum ActorKind {
+  USER
+  INSTRUMENT
+
+  @@map("actor_kind")
+}
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+
+  @@map("transaction_type")
+}
+
+enum ShouldPayType {
+  HOUSEHOLD
+  USER
+
+  @@map("should_pay_type")
+}
+
+enum SettlementStatus {
+  DRAFT
+  FINALIZED
+
+  @@map("settlement_status")
+}
+
+enum ApportionmentPolicy {
+  EXCLUDE
+  MIN_SHARE
+
+  @@map("apportionment_policy")
+}
+
+enum RoundingPolicy {
+  BANKERS
+  ROUND
+  FLOOR
+  CEILING
+
+  @@map("rounding_policy")
+}
+
+// Core Models
+
+model Household {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relationships
+  users        User[]
+  actors       Actor[]
+  categories   Category[]
+  transactions Transaction[]
+  incomes      Income[]
+  settlements  Settlement[]
+  policy       Policy?
+  auditLogs    AuditLog[]
+
+  @@map("households")
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId  String    @map("household_id") @db.Uuid
+  email        String    @db.Citext
+  name         String    @db.VarChar(100)
+  role         UserRole  @default(member)
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+
+  // Relationships
+  household            Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  actors               Actor[]
+  paidTransactions     Transaction[]    @relation("PayerUser")
+  owedTransactions     Transaction[]    @relation("ShouldPayUser")
+  incomes              Income[]
+  finalizedSettlements Settlement[]     @relation("SettlementFinalizer")
+  settlementPayments   SettlementLine[] @relation("SettlementPayer")
+  settlementReceipts   SettlementLine[] @relation("SettlementReceiver")
+  auditLogs            AuditLog[]
+  sessions             Session[]
+  personalAccessTokens PersonalAccessToken[]
+
+  @@unique([householdId, email], map: "unique_household_email")
+  @@index([householdId])
+  @@index([email])
+  @@index([householdId, role], map: "users_household_role_idx")
+  @@map("users")
+}
+
+model Session {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  sessionData String   @map("session_data") @db.Text
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model PersonalAccessToken {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String   @db.VarChar(100)
+  token       String   @unique @db.VarChar(128)
+  abilities   String[] @default([])
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("personal_access_tokens")
+}
+
+model Actor {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String    @map("household_id") @db.Uuid
+  kind        ActorKind
+  userId      String?   @map("user_id") @db.Uuid
+  name        String    @db.VarChar(100)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relationships
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[] @relation("PayerActor")
+
+  @@unique([householdId, kind, userId, name], map: "unique_household_actor")
+  @@index([householdId])
+  @@index([userId])
+  @@index([householdId, kind, isActive])
+  @@map("actors")
+}
+
+model Category {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String          @map("household_id") @db.Uuid
+  name        String          @db.VarChar(100)
+  parentId    String?         @map("parent_id") @db.Uuid
+  type        TransactionType
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relationships
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Category[]    @relation("CategoryHierarchy")
+  transactions Transaction[]
+
+  @@unique([householdId, name, type, parentId], map: "unique_household_category")
+  @@index([householdId])
+  @@index([parentId])
+  @@index([householdId, type])
+  @@map("categories")
+}
+
+model Transaction {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId      String          @map("household_id") @db.Uuid
+  type             TransactionType
+  amountYen        BigInt          @map("amount_yen")
+  occurredOn       DateTime        @map("occurred_on") @db.Date
+  bookedAt         DateTime        @default(now()) @map("booked_at") @db.Timestamptz
+  categoryId       String          @map("category_id") @db.Uuid
+  payerActorId     String          @map("payer_actor_id") @db.Uuid
+  payerUserId      String?         @map("payer_user_id") @db.Uuid
+  shouldPay        ShouldPayType   @map("should_pay")
+  shouldPayUserId  String?         @map("should_pay_user_id") @db.Uuid
+  note             String?         @db.VarChar(500)
+  tags             String[]        @default([])
+  sourceHash       String?         @map("source_hash")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz
+
+  // Relationships
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  payerActor    Actor     @relation("PayerActor", fields: [payerActorId], references: [id], onDelete: Restrict)
+  payerUser     User?     @relation("PayerUser", fields: [payerUserId], references: [id], onDelete: SetNull)
+  shouldPayUser User?     @relation("ShouldPayUser", fields: [shouldPayUserId], references: [id], onDelete: Restrict)
+
+  @@unique([householdId, sourceHash], map: "unique_source_hash")
+  @@index([householdId, occurredOn(sort: Desc)], map: "transactions_household_occurred_idx")
+  @@index([categoryId])
+  @@index([payerActorId])
+  @@index([shouldPayUserId])
+  @@index([householdId, type, shouldPay])
+  @@index([tags], type: Gin)
+  @@map("transactions")
+}
+
+model Income {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId        String   @map("household_id") @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  month              DateTime @db.Date
+  grossYen           BigInt   @map("gross_yen")
+  deductionTaxYen    BigInt   @default(0) @map("deduction_tax_yen")
+  deductionSocialYen BigInt   @default(0) @map("deduction_social_yen")
+  deductionOtherYen  BigInt   @default(0) @map("deduction_other_yen")
+  allocatableYen     BigInt   @map("allocatable_yen")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relationships
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId, month], map: "unique_user_month")
+  @@index([householdId])
+  @@index([userId, month])
+  @@index([householdId, month])
+  @@map("incomes")
+}
+
+model Settlement {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  householdId String            @map("household_id") @db.Uuid
+  month       DateTime          @db.Date
+  status      SettlementStatus  @default(DRAFT)
+  computedAt  DateTime          @default(now()) @map("computed_at") @db.Timestamptz
+  finalizedBy String?           @map("finalized_by") @db.Uuid
+  finalizedAt DateTime?         @map("finalized_at") @db.Timestamptz
+  notes       String?           @db.VarChar(1000)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relationships
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  finalizer User?            @relation("SettlementFinalizer", fields: [finalizedBy], references: [id], onDelete: SetNull)
+  lines     SettlementLine[]
+
+  @@unique([householdId, month], map: "unique_household_month")
+  @@index([householdId, month(sort: Desc)])
+  @@index([householdId, status])
+  @@map("settlements")
+}
+
+model SettlementLine {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  settlementId String @map("settlement_id") @db.Uuid
+  fromUserId   String @map("from_user_id") @db.Uuid
+  toUserId     String @map("to_user_id") @db.Uuid
+  amountYen    BigInt @map("amount_yen")
+  description  String @default("")
+
+  // Relationships
+  settlement Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  fromUser   User       @relation("SettlementPayer", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUser     User       @relation("SettlementReceiver", fields: [toUserId], references: [id], onDelete: Restrict)
+
+  @@index([settlementId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@map("settlement_lines")
+}
+
+model Policy {
+  householdId             String               @id @map("household_id") @db.Uuid
+  apportionmentZeroIncome ApportionmentPolicy  @default(EXCLUDE) @map("apportionment_zero_income")
+  rounding                RoundingPolicy       @default(ROUND)
+  allowFutureDates        Boolean              @default(false) @map("allow_future_dates")
+  gracePeriodDays         Int                  @default(0) @map("grace_period_days")
+  updatedAt               DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relationships
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@map("policy")
+}
+
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  householdId String   @map("household_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  at          DateTime @default(now()) @db.Timestamptz
+  action      String
+  detail      Json     @default("{}")
+  ipAddress   String?  @map("ip_address") @db.Inet
+  userAgent   String?  @map("user_agent")
+
+  // Relationships (no foreign keys to allow household deletion audit)
+  household Household? @relation(fields: [householdId], references: [id], onDelete: NoAction)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: NoAction)
+
+  @@index([householdId, at(sort: Desc)])
+  @@index([userId, at(sort: Desc)])
+  @@index([action, at(sort: Desc)])
+  @@index([detail], type: Gin)
+  @@map("audit_log")
 }

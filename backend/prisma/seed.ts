@@ -3,18 +3,10 @@ import { PrismaClient } from '../generated/prisma'; // Corrected import path
 const prisma = new PrismaClient();
 
 async function main() {
-  // Clear existing data
-  await prisma.user.deleteMany({});
-
-  // Create test users
-  await prisma.user.createMany({
-    data: [
-      { email: 'test1@example.com', name: 'Test User 1' },
-      { email: 'test2@example.com', name: 'Test User 2' },
-    ],
-  });
-
-  console.log('Seeding complete!');
+  // Seed script placeholder
+  // TODO: Add proper seed data after implementing user management and authentication
+  console.log('Seed script executed successfully');
+  console.log('Database seeding will be implemented after user management is complete');
 }
 
 main()

@@ -29,3 +29,6 @@ build
 
 /generated/prisma
 CLAUDE.md
+
+/backend/generated/
+/backend/prisma/migrations/

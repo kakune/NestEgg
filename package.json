@@ -40,5 +40,11 @@
     "workerDirectory": [
       "public"
     ]
+  },
+  "dependencies": {
+    "@types/multer": "^2.0.0",
+    "@types/papaparse": "^5.3.16",
+    "multer": "^2.0.2",
+    "papaparse": "^5.5.3"
   }
 }
