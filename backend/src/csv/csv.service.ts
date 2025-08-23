@@ -1,8 +1,5 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/restrict-template-expressions, no-case-declarations, @typescript-eslint/no-unused-vars */
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { IncomesService } from '../incomes/incomes.service';
@@ -22,7 +19,7 @@ export interface FieldMapping {
   csvField: string;
   systemField: string;
   required: boolean;
-  defaultValue?: any;
+  defaultValue?: string | number | boolean | null;
   transform?: 'date' | 'number' | 'string' | 'boolean' | 'enum';
   enumValues?: string[];
 }
@@ -32,7 +29,7 @@ export interface ImportPreview {
   validRows: number;
   invalidRows: number;
   duplicateRows: number;
-  sampleData: any[];
+  sampleData: Record<string, string>[];
   errors: ImportError[];
   warnings: ImportWarning[];
 }
@@ -40,14 +37,14 @@ export interface ImportPreview {
 export interface ImportError {
   row: number;
   field: string;
-  value: any;
+  value: string | number | boolean | null;
   message: string;
 }
 
 export interface ImportWarning {
   row: number;
   field: string;
-  value: any;
+  value: string | number | boolean | null;
   message: string;
 }
 
@@ -89,7 +86,9 @@ export class CsvService {
     });
 
     if (parsed.errors.length > 0) {
-      throw new BadRequestException('CSV parsing failed: ' + parsed.errors.map(e => e.message).join(', '));
+      throw new BadRequestException(
+        'CSV parsing failed: ' + parsed.errors.map((e) => e.message).join(', '),
+      );
     }
 
     const preview: ImportPreview = {
@@ -103,24 +102,31 @@ export class CsvService {
     };
 
     const duplicateHashes = new Set<string>();
-    
+
     // Check for existing duplicates in database
     const existingHashes = await this.getExistingTransactionHashes(authContext);
 
-    for (let i = 0; i < Math.min(parsed.data.length, 1000); i++) { // Preview first 1000 rows
+    for (let i = 0; i < Math.min(parsed.data.length, 1000); i++) {
+      // Preview first 1000 rows
       const row = parsed.data[i] as any;
       const rowNumber = i + 2; // +2 for header and 1-based indexing
-      
+
       try {
         const mappedData = this.mapRowData(row, fieldMapping);
-        const validationResult = await this.validateTransactionRow(mappedData, authContext);
-        
+        const validationResult = await this.validateTransactionRow(
+          mappedData,
+          authContext,
+        );
+
         if (validationResult.isValid) {
           preview.validRows++;
-          
+
           // Check for duplicates
           const sourceHash = this.generateTransactionHash(mappedData);
-          if (existingHashes.has(sourceHash) || duplicateHashes.has(sourceHash)) {
+          if (
+            existingHashes.has(sourceHash) ||
+            duplicateHashes.has(sourceHash)
+          ) {
             preview.duplicateRows++;
             preview.warnings.push({
               row: rowNumber,
@@ -131,16 +137,18 @@ export class CsvService {
           } else {
             duplicateHashes.add(sourceHash);
           }
-          
+
           if (preview.sampleData.length < 5) {
             preview.sampleData.push(mappedData);
           }
         } else {
           preview.invalidRows++;
-          preview.errors.push(...validationResult.errors.map(error => ({
-            ...error,
-            row: rowNumber,
-          })));
+          preview.errors.push(
+            ...validationResult.errors.map((error) => ({
+              ...error,
+              row: rowNumber,
+            })),
+          );
         }
       } catch (error) {
         preview.invalidRows++;
@@ -169,7 +177,9 @@ export class CsvService {
     });
 
     if (parsed.errors.length > 0) {
-      throw new BadRequestException('CSV parsing failed: ' + parsed.errors.map(e => e.message).join(', '));
+      throw new BadRequestException(
+        'CSV parsing failed: ' + parsed.errors.map((e) => e.message).join(', '),
+      );
     }
 
     const result: ImportResult = {
@@ -186,22 +196,27 @@ export class CsvService {
     for (let i = 0; i < parsed.data.length; i++) {
       const row = parsed.data[i] as any;
       const rowNumber = i + 2;
-      
+
       try {
         const mappedData = this.mapRowData(row, fieldMapping);
-        const validationResult = await this.validateTransactionRow(mappedData, authContext);
-        
+        const validationResult = await this.validateTransactionRow(
+          mappedData,
+          authContext,
+        );
+
         if (!validationResult.isValid) {
           result.failed++;
-          result.errors.push(...validationResult.errors.map(error => ({
-            ...error,
-            row: rowNumber,
-          })));
+          result.errors.push(
+            ...validationResult.errors.map((error) => ({
+              ...error,
+              row: rowNumber,
+            })),
+          );
           continue;
         }
 
         const sourceHash = this.generateTransactionHash(mappedData);
-        
+
         if (existingHashes.has(sourceHash) || processedHashes.has(sourceHash)) {
           result.duplicates++;
           if (!skipDuplicates) {
@@ -216,14 +231,16 @@ export class CsvService {
         }
 
         // Create transaction
-        await this.transactionsService.create({
-          ...mappedData,
-          sourceHash,
-        }, authContext);
+        await this.transactionsService.create(
+          {
+            ...mappedData,
+            sourceHash,
+          },
+          authContext,
+        );
 
         result.successful++;
         processedHashes.add(sourceHash);
-
       } catch (error) {
         result.failed++;
         result.errors.push({
@@ -239,13 +256,16 @@ export class CsvService {
   }
 
   async exportTransactions(
-    filters: any,
+    filters: Record<string, unknown>,
     options: ExportOptions,
     authContext: AuthContext,
   ): Promise<string> {
-    const transactions = await this.transactionsService.findAll(filters, authContext);
+    const transactions = await this.transactionsService.findAll(
+      filters,
+      authContext,
+    );
 
-    const exportData = transactions.map(transaction => ({
+    const exportData = transactions.map((transaction) => ({
       id: transaction.id,
       amount: transaction.amount,
       type: transaction.type,
@@ -284,7 +304,9 @@ export class CsvService {
     });
 
     if (parsed.errors.length > 0) {
-      throw new BadRequestException('CSV parsing failed: ' + parsed.errors.map(e => e.message).join(', '));
+      throw new BadRequestException(
+        'CSV parsing failed: ' + parsed.errors.map((e) => e.message).join(', '),
+      );
     }
 
     const result: ImportResult = {
@@ -298,17 +320,22 @@ export class CsvService {
     for (let i = 0; i < parsed.data.length; i++) {
       const row = parsed.data[i] as any;
       const rowNumber = i + 2;
-      
+
       try {
         const mappedData = this.mapRowData(row, fieldMapping);
-        const validationResult = await this.validateIncomeRow(mappedData, authContext);
-        
+        const validationResult = await this.validateIncomeRow(
+          mappedData,
+          authContext,
+        );
+
         if (!validationResult.isValid) {
           result.failed++;
-          result.errors.push(...validationResult.errors.map(error => ({
-            ...error,
-            row: rowNumber,
-          })));
+          result.errors.push(
+            ...validationResult.errors.map((error) => ({
+              ...error,
+              row: rowNumber,
+            })),
+          );
           continue;
         }
 
@@ -336,7 +363,6 @@ export class CsvService {
         // Create income
         await this.incomesService.create(mappedData, authContext);
         result.successful++;
-
       } catch (error) {
         result.failed++;
         result.errors.push({
@@ -352,13 +378,13 @@ export class CsvService {
   }
 
   async exportIncomes(
-    filters: any,
+    filters: Record<string, unknown>,
     options: ExportOptions,
     authContext: AuthContext,
   ): Promise<string> {
     const incomes = await this.incomesService.findAll(filters, authContext);
 
-    const exportData = incomes.map(income => ({
+    const exportData = incomes.map((income) => ({
       id: income.id,
       userId: income.userId,
       userName: income.user.name,
@@ -383,8 +409,12 @@ export class CsvService {
   }
 
   // Utility methods
-  private mapRowData(row: any, fieldMapping: FieldMapping[]): any {
-    const mappedData: any = {};
+  private mapRowData(
+    row: Record<string, string>,
+    fieldMapping: FieldMapping[],
+  ): Record<string, string | number | boolean | Date | null> {
+    const mappedData: Record<string, string | number | boolean | Date | null> =
+      {};
 
     for (const mapping of fieldMapping) {
       const csvValue = row[mapping.csvField];
@@ -397,12 +427,18 @@ export class CsvService {
 
       // Apply transformations
       if (systemValue && mapping.transform) {
-        systemValue = this.transformValue(systemValue, mapping.transform, mapping.enumValues);
+        systemValue = this.transformValue(
+          systemValue,
+          mapping.transform,
+          mapping.enumValues,
+        );
       }
 
       // Validate required fields
-      if (mapping.required && (!systemValue && systemValue !== 0)) {
-        throw new BadRequestException(`Required field '${mapping.systemField}' is missing`);
+      if (mapping.required && !systemValue && systemValue !== 0) {
+        throw new BadRequestException(
+          `Required field '${mapping.systemField}' is missing`,
+        );
       }
 
       mappedData[mapping.systemField] = systemValue;
@@ -411,7 +447,11 @@ export class CsvService {
     return mappedData;
   }
 
-  private transformValue(value: any, transform: string, enumValues?: string[]): any {
+  private transformValue(
+    value: string | number | boolean | null,
+    transform: string,
+    enumValues?: string[],
+  ): string | number | boolean | Date | null {
     switch (transform) {
       case 'date':
         const date = new Date(value);
@@ -428,11 +468,15 @@ export class CsvService {
         return num;
 
       case 'boolean':
-        return ['true', '1', 'yes', 'y'].includes(value.toString().toLowerCase());
+        return ['true', '1', 'yes', 'y'].includes(
+          value.toString().toLowerCase(),
+        );
 
       case 'enum':
         if (enumValues && !enumValues.includes(value)) {
-          throw new BadRequestException(`Invalid enum value: ${value}. Must be one of: ${enumValues.join(', ')}`);
+          throw new BadRequestException(
+            `Invalid enum value: ${value}. Must be one of: ${enumValues.join(', ')}`,
+          );
         }
         return value;
 
@@ -442,7 +486,10 @@ export class CsvService {
     }
   }
 
-  private async validateTransactionRow(data: any, authContext: AuthContext): Promise<{
+  private async validateTransactionRow(
+    data: Record<string, string | number | boolean | Date | null>,
+    authContext: AuthContext,
+  ): Promise<{
     isValid: boolean;
     errors: ImportError[];
   }> {
@@ -505,7 +552,10 @@ export class CsvService {
     };
   }
 
-  private async validateIncomeRow(data: any, authContext: AuthContext): Promise<{
+  private async validateIncomeRow(
+    data: Record<string, string | number | boolean | Date | null>,
+    authContext: AuthContext,
+  ): Promise<{
     isValid: boolean;
     errors: ImportError[];
   }> {
@@ -583,7 +633,9 @@ export class CsvService {
     };
   }
 
-  private async getExistingTransactionHashes(authContext: AuthContext): Promise<Set<string>> {
+  private async getExistingTransactionHashes(
+    authContext: AuthContext,
+  ): Promise<Set<string>> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const transactions = await prisma.transaction.findMany({
         where: {
@@ -593,11 +645,17 @@ export class CsvService {
         select: { sourceHash: true },
       });
 
-      return new Set(transactions.map(t => t.sourceHash).filter(Boolean));
+      return new Set(transactions.map((t) => t.sourceHash).filter(Boolean));
     });
   }
 
-  private generateTransactionHash(data: any): string {
+  private generateTransactionHash(data: {
+    amount: number;
+    date: Date;
+    description: string;
+    actorId: string;
+    categoryId: string;
+  }): string {
     const hashInput = `${data.amount}-${data.date.toISOString()}-${data.description}-${data.actorId}-${data.categoryId}`;
     return crypto.createHash('sha256').update(hashInput).digest('hex');
   }

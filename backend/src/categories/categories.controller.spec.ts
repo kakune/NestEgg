@@ -1,17 +1,18 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@prisma/client';
 
 describe('CategoriesController', () => {
   let controller: CategoriesController;
-  let categoriesService: CategoriesService;
 
   const mockUser = {
     userId: 'user-1',
     householdId: 'household-1',
-    role: 'admin' as any,
+    role: UserRole.admin,
   };
 
   const mockCategory = {
@@ -40,7 +41,7 @@ describe('CategoriesController', () => {
     getCategoryTree: jest.fn(),
     getCategoryPath: jest.fn(),
     getCategoryStats: jest.fn(),
-  };
+  } as jest.Mocked<CategoriesService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -96,7 +97,7 @@ describe('CategoriesController', () => {
       expect(mockCategoriesService.findAll).toHaveBeenCalledWith({
         userId: 'user-1',
         householdId: 'household-1',
-        role: 'admin',
+        role: UserRole.admin,
       });
     });
   });
@@ -124,14 +125,11 @@ describe('CategoriesController', () => {
       const result = await controller.findOne('category-1', mockUser);
 
       expect(result).toEqual(mockCategoryWithChildren);
-      expect(mockCategoriesService.findOne).toHaveBeenCalledWith(
-        'category-1',
-        {
-          userId: mockUser.userId,
-          householdId: mockUser.householdId,
-          role: mockUser.role,
-        }
-      );
+      expect(mockCategoriesService.findOne).toHaveBeenCalledWith('category-1', {
+        userId: mockUser.userId,
+        householdId: mockUser.householdId,
+        role: mockUser.role,
+      });
     });
 
     it('should pass correct category ID and auth context', async () => {
@@ -139,14 +137,11 @@ describe('CategoriesController', () => {
 
       await controller.findOne('test-id', mockUser);
 
-      expect(mockCategoriesService.findOne).toHaveBeenCalledWith(
-        'test-id',
-        {
-          userId: 'user-1',
-          householdId: 'household-1',
-          role: 'admin',
-        }
-      );
+      expect(mockCategoriesService.findOne).toHaveBeenCalledWith('test-id', {
+        userId: 'user-1',
+        householdId: 'household-1',
+        role: 'admin',
+      });
     });
   });
 
@@ -164,7 +159,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
   });
@@ -185,7 +180,10 @@ describe('CategoriesController', () => {
       };
       mockCategoriesService.getCategoryStats.mockResolvedValue(mockStats);
 
-      const result = await controller.getCategoryStats('category-1', mockUser);
+      const result: unknown = await controller.getCategoryStats(
+        'category-1',
+        mockUser,
+      );
 
       expect(result).toEqual(mockStats);
       expect(mockCategoriesService.getCategoryStats).toHaveBeenCalledWith(
@@ -194,7 +192,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
   });
@@ -217,7 +215,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
 
@@ -228,7 +226,10 @@ describe('CategoriesController', () => {
       };
       mockCategoriesService.create.mockResolvedValue(mockCategory);
 
-      const result = await controller.create(createCategoryDtoWithParent, mockUser);
+      const result = await controller.create(
+        createCategoryDtoWithParent,
+        mockUser,
+      );
 
       expect(result).toEqual(mockCategory);
       expect(mockCategoriesService.create).toHaveBeenCalledWith(
@@ -237,7 +238,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
 
@@ -253,7 +254,7 @@ describe('CategoriesController', () => {
           userId: memberUser.userId,
           householdId: memberUser.householdId,
           role: 'member',
-        }
+        },
       );
     });
   });
@@ -268,7 +269,11 @@ describe('CategoriesController', () => {
       const updatedCategory = { ...mockCategory, ...updateCategoryDto };
       mockCategoriesService.update.mockResolvedValue(updatedCategory);
 
-      const result = await controller.update('category-1', updateCategoryDto, mockUser);
+      const result = await controller.update(
+        'category-1',
+        updateCategoryDto,
+        mockUser,
+      );
 
       expect(result).toEqual(updatedCategory);
       expect(mockCategoriesService.update).toHaveBeenCalledWith(
@@ -278,7 +283,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
 
@@ -287,7 +292,11 @@ describe('CategoriesController', () => {
       const updatedCategory = { ...mockCategory, name: 'New Name Only' };
       mockCategoriesService.update.mockResolvedValue(updatedCategory);
 
-      const result = await controller.update('category-1', partialUpdate, mockUser);
+      const result = await controller.update(
+        'category-1',
+        partialUpdate,
+        mockUser,
+      );
 
       expect(result).toEqual(updatedCategory);
       expect(mockCategoriesService.update).toHaveBeenCalledWith(
@@ -297,7 +306,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
 
@@ -309,7 +318,11 @@ describe('CategoriesController', () => {
       const updatedCategory = { ...mockCategory, ...updateWithNewParent };
       mockCategoriesService.update.mockResolvedValue(updatedCategory);
 
-      const result = await controller.update('category-1', updateWithNewParent, mockUser);
+      const result = await controller.update(
+        'category-1',
+        updateWithNewParent,
+        mockUser,
+      );
 
       expect(result).toEqual(updatedCategory);
       expect(mockCategoriesService.update).toHaveBeenCalledWith(
@@ -319,7 +332,7 @@ describe('CategoriesController', () => {
           userId: mockUser.userId,
           householdId: mockUser.householdId,
           role: mockUser.role,
-        }
+        },
       );
     });
 
@@ -335,7 +348,7 @@ describe('CategoriesController', () => {
           userId: 'user-1',
           householdId: 'household-1',
           role: 'admin',
-        }
+        },
       );
     });
   });
@@ -347,14 +360,11 @@ describe('CategoriesController', () => {
       const result = await controller.remove('category-1', mockUser);
 
       expect(result).toBeUndefined();
-      expect(mockCategoriesService.remove).toHaveBeenCalledWith(
-        'category-1',
-        {
-          userId: mockUser.userId,
-          householdId: mockUser.householdId,
-          role: mockUser.role,
-        }
-      );
+      expect(mockCategoriesService.remove).toHaveBeenCalledWith('category-1', {
+        userId: mockUser.userId,
+        householdId: mockUser.householdId,
+        role: mockUser.role,
+      });
     });
 
     it('should pass correct category ID and auth context', async () => {
@@ -368,7 +378,7 @@ describe('CategoriesController', () => {
           userId: 'user-1',
           householdId: 'household-1',
           role: 'admin',
-        }
+        },
       );
     });
 
@@ -376,8 +386,9 @@ describe('CategoriesController', () => {
       const serviceError = new Error('Service error');
       mockCategoriesService.remove.mockRejectedValue(serviceError);
 
-      await expect(controller.remove('category-1', mockUser))
-        .rejects.toThrow('Service error');
+      await expect(controller.remove('category-1', mockUser)).rejects.toThrow(
+        'Service error',
+      );
     });
   });
 
@@ -416,14 +427,37 @@ describe('CategoriesController', () => {
       await controller.remove('test-id', testUser);
 
       // Verify all service methods were called with the same auth context
-      expect(mockCategoriesService.findAll).toHaveBeenCalledWith(expectedAuthContext);
-      expect(mockCategoriesService.getCategoryTree).toHaveBeenCalledWith(expectedAuthContext);
-      expect(mockCategoriesService.findOne).toHaveBeenCalledWith('test-id', expectedAuthContext);
-      expect(mockCategoriesService.getCategoryPath).toHaveBeenCalledWith('test-id', expectedAuthContext);
-      expect(mockCategoriesService.getCategoryStats).toHaveBeenCalledWith('test-id', expectedAuthContext);
-      expect(mockCategoriesService.create).toHaveBeenCalledWith({ name: 'Test' }, expectedAuthContext);
-      expect(mockCategoriesService.update).toHaveBeenCalledWith('test-id', { name: 'Updated' }, expectedAuthContext);
-      expect(mockCategoriesService.remove).toHaveBeenCalledWith('test-id', expectedAuthContext);
+      expect(mockCategoriesService.findAll).toHaveBeenCalledWith(
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.getCategoryTree).toHaveBeenCalledWith(
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.findOne).toHaveBeenCalledWith(
+        'test-id',
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.getCategoryPath).toHaveBeenCalledWith(
+        'test-id',
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.getCategoryStats).toHaveBeenCalledWith(
+        'test-id',
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.create).toHaveBeenCalledWith(
+        { name: 'Test' },
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.update).toHaveBeenCalledWith(
+        'test-id',
+        { name: 'Updated' },
+        expectedAuthContext,
+      );
+      expect(mockCategoriesService.remove).toHaveBeenCalledWith(
+        'test-id',
+        expectedAuthContext,
+      );
     });
   });
 
@@ -432,29 +466,36 @@ describe('CategoriesController', () => {
       const serviceError = new Error('Service Error');
       mockCategoriesService.findAll.mockRejectedValue(serviceError);
 
-      await expect(controller.findAll(mockUser)).rejects.toThrow('Service Error');
+      await expect(controller.findAll(mockUser)).rejects.toThrow(
+        'Service Error',
+      );
     });
 
     it('should propagate service errors from findOne', async () => {
       const serviceError = new Error('Not Found Error');
       mockCategoriesService.findOne.mockRejectedValue(serviceError);
 
-      await expect(controller.findOne('category-1', mockUser)).rejects.toThrow('Not Found Error');
+      await expect(controller.findOne('category-1', mockUser)).rejects.toThrow(
+        'Not Found Error',
+      );
     });
 
     it('should propagate service errors from create', async () => {
       const serviceError = new Error('Validation Error');
       mockCategoriesService.create.mockRejectedValue(serviceError);
 
-      await expect(controller.create({ name: 'Test' }, mockUser)).rejects.toThrow('Validation Error');
+      await expect(
+        controller.create({ name: 'Test' }, mockUser),
+      ).rejects.toThrow('Validation Error');
     });
 
     it('should propagate service errors from update', async () => {
       const serviceError = new Error('Update Error');
       mockCategoriesService.update.mockRejectedValue(serviceError);
 
-      await expect(controller.update('category-1', { name: 'Updated' }, mockUser))
-        .rejects.toThrow('Update Error');
+      await expect(
+        controller.update('category-1', { name: 'Updated' }, mockUser),
+      ).rejects.toThrow('Update Error');
     });
   });
 });

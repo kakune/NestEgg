@@ -10,96 +10,90 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ActorsService, AuthContext, CreateActorDto, UpdateActorDto } from './actors.service';
+import {
+  ActorsService,
+  CreateActorDto,
+  UpdateActorDto,
+} from './actors.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { Actor } from '@prisma/client';
+import {
+  AuthContext,
+  AuthenticatedUser,
+} from '../common/interfaces/auth-context.interface';
 
 @Controller('actors')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ActorsController {
   constructor(private readonly actorsService: ActorsService) {}
 
-  @Get()
-  async findAll(@CurrentUser() user: any): Promise<Actor[]> {
-    const authContext: AuthContext = {
+  private getAuthContext(user: AuthenticatedUser): AuthContext {
+    return {
       userId: user.userId,
       householdId: user.householdId,
       role: user.role,
     };
-    return this.actorsService.findAll(authContext);
+  }
+
+  @Get()
+  async findAll(@CurrentUser() user: AuthenticatedUser): Promise<Actor[]> {
+    return this.actorsService.findAll(this.getAuthContext(user));
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() user: any): Promise<Actor> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.actorsService.findOne(id, authContext);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Actor> {
+    return this.actorsService.findOne(id, this.getAuthContext(user));
   }
 
   @Get('user/:userId')
   async findByUserId(
     @Param('userId') userId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.actorsService.findByUserId(userId, authContext);
+    return this.actorsService.findByUserId(userId, this.getAuthContext(user));
   }
 
   @Get(':id/stats')
-  async getActorStats(@Param('id') id: string, @CurrentUser() user: any): Promise<any> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.actorsService.getActorStats(id, authContext);
+  async getActorStats(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<any> {
+    return this.actorsService.getActorStats(id, this.getAuthContext(user));
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createActorDto: CreateActorDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.actorsService.create(createActorDto, authContext);
+    return this.actorsService.create(createActorDto, this.getAuthContext(user));
   }
 
   @Put(':id')
   async update(
     @Param('id') id: string,
     @Body() updateActorDto: UpdateActorDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.actorsService.update(id, updateActorDto, authContext);
+    return this.actorsService.update(
+      id,
+      updateActorDto,
+      this.getAuthContext(user),
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string, @CurrentUser() user: any): Promise<void> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    await this.actorsService.remove(id, authContext);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.actorsService.remove(id, this.getAuthContext(user));
   }
 }

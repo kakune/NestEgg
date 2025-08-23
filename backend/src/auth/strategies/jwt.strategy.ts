@@ -55,19 +55,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // For personal access tokens, validate token
     if (payload.tokenType === 'pat') {
-      const pat = await this.prismaService.prisma.personalAccessToken.findFirst({
-        where: {
-          userId: payload.sub,
-          revokedAt: null,
-          OR: [
-            { expiresAt: null },
-            { expiresAt: { gt: new Date() } },
-          ],
+      const pat = await this.prismaService.prisma.personalAccessToken.findFirst(
+        {
+          where: {
+            userId: payload.sub,
+            revokedAt: null,
+            OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+          },
         },
-      });
+      );
 
       if (!pat) {
-        throw new UnauthorizedException('Personal access token invalid or expired');
+        throw new UnauthorizedException(
+          'Personal access token invalid or expired',
+        );
       }
     }
 

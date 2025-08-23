@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsArray, IsNumber, Min, Max, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  Min,
+  Max,
+  MaxLength,
+} from 'class-validator';
 
 export class CreatePersonalAccessTokenDto {
   @IsString()

@@ -1,4 +1,9 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
@@ -20,26 +25,27 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.prisma.$on('error' as never, (e: any) => {
+    this.prisma.$on('error' as never, (e: unknown) => {
       this.logger.error('Prisma error:', e);
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.prisma.$on('warn' as never, (e: any) => {
+    this.prisma.$on('warn' as never, (e: unknown) => {
       this.logger.warn('Prisma warning:', e);
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.prisma.$on('info' as never, (e: any) => {
+    this.prisma.$on('info' as never, (e: unknown) => {
       this.logger.log('Prisma info:', e);
     });
 
-    if (this.configService.get<string>('config.app.environment') === 'development') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.prisma.$on('query' as never, (e: any) => {
-        this.logger.debug(`Query: ${e.query} - ${e.duration}ms`);
-      });
+    if (
+      this.configService.get<string>('config.app.environment') === 'development'
+    ) {
+      this.prisma.$on(
+        'query' as never,
+        (e: { query: string; duration: number }) => {
+          this.logger.debug(`Query: ${e.query} - ${e.duration}ms`);
+        },
+      );
     }
 
     await this.prisma.$connect();
@@ -52,16 +58,36 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Proxy Prisma methods
-  get user() { return this.prisma.user; }
-  get household() { return this.prisma.household; }
-  get actor() { return this.prisma.actor; }
-  get category() { return this.prisma.category; }
-  get transaction() { return this.prisma.transaction; }
-  get income() { return this.prisma.income; }
-  get settlement() { return this.prisma.settlement; }
-  get settlementLine() { return this.prisma.settlementLine; }
-  get policy() { return this.prisma.policy; }
-  get auditLog() { return this.prisma.auditLog; }
+  get user() {
+    return this.prisma.user;
+  }
+  get household() {
+    return this.prisma.household;
+  }
+  get actor() {
+    return this.prisma.actor;
+  }
+  get category() {
+    return this.prisma.category;
+  }
+  get transaction() {
+    return this.prisma.transaction;
+  }
+  get income() {
+    return this.prisma.income;
+  }
+  get settlement() {
+    return this.prisma.settlement;
+  }
+  get settlementLine() {
+    return this.prisma.settlementLine;
+  }
+  get policy() {
+    return this.prisma.policy;
+  }
+  get auditLog() {
+    return this.prisma.auditLog;
+  }
 
   /**
    * Set RLS session context for the current transaction
@@ -94,9 +120,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
    */
   async withContext<T>(
     context: AuthContext & { showDeleted?: boolean },
-    fn: (prisma: any) => Promise<T>,
+    fn: (prisma: PrismaClient) => Promise<T>,
   ): Promise<T> {
-    return this.prisma.$transaction(async (tx: any) => {
+    return this.prisma.$transaction(async (tx) => {
       // Set context on the transaction
       await tx.$executeRaw`
         SELECT set_session_context(
@@ -108,7 +134,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       `;
 
       // Pass the transaction client directly
-      return fn(tx);
+      return fn(tx as PrismaClient);
     });
   }
 
@@ -133,7 +159,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     extensions: string[];
     connectionCount: number;
   }> {
-    const versionResult = await this.prisma.$queryRaw<[{ version: string }]>`SELECT version()`;
+    const versionResult = await this.prisma.$queryRaw<
+      [{ version: string }]
+    >`SELECT version()`;
     const extensionsResult = await this.prisma.$queryRaw<{ extname: string }[]>`
       SELECT extname FROM pg_extension WHERE extname IN ('citext', 'uuid-ossp')
     `;
@@ -143,7 +171,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
     return {
       version: versionResult[0]?.version ?? 'unknown',
-      extensions: extensionsResult.map((ext: { extname: string }) => ext.extname),
+      extensions: extensionsResult.map(
+        (ext: { extname: string }) => ext.extname,
+      ),
       connectionCount: Number(connectionsResult[0]?.count ?? 0),
     };
   }

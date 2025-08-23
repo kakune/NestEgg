@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -18,12 +23,33 @@ export interface JwtPayload {
   tokenType: 'access' | 'pat'; // personal access token
 }
 
+// User type for auth operations
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  householdId: string;
+  passwordHash: string;
+  deletedAt: Date | null;
+}
+
+// User without password hash
+export interface SafeUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  householdId: string;
+  deletedAt: Date | null;
+}
+
 export interface AuthResponse {
   accessToken: string;
   user: {
     id: string;
     email: string;
-    name: string;
+    name: string | null;
     householdId: string;
     role: UserRole;
   };
@@ -39,8 +65,8 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
-    const user = await this.prismaService.prisma.user.findUnique({
+  async validateUser(email: string, password: string): Promise<SafeUser> {
+    const user = (await this.prismaService.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
       select: {
         id: true,
@@ -51,7 +77,7 @@ export class AuthService {
         passwordHash: true,
         deletedAt: true,
       },
-    });
+    })) as AuthUser | null;
 
     if (!user || user.deletedAt) {
       throw new UnauthorizedException('Invalid credentials');
@@ -63,13 +89,14 @@ export class AuthService {
     }
 
     // Don't return password hash
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = user;
     return result;
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
     const user = await this.validateUser(loginDto.email, loginDto.password);
-    
+
     // Create session
     const session = await this.prismaService.prisma.session.create({
       data: {
@@ -131,13 +158,16 @@ export class AuthService {
     }
 
     // Create user
-    const user = await this.prismaService.prisma.user.create({
+    const user = (await this.prismaService.prisma.user.create({
       data: {
         email: registerDto.email.toLowerCase(),
         name: registerDto.name,
         passwordHash,
         householdId,
-        role: householdId === registerDto.householdId ? UserRole.member : UserRole.admin,
+        role:
+          householdId === registerDto.householdId
+            ? UserRole.member
+            : UserRole.admin,
       },
       select: {
         id: true,
@@ -146,7 +176,13 @@ export class AuthService {
         householdId: true,
         role: true,
       },
-    });
+    })) as {
+      id: string;
+      email: string;
+      name: string | null;
+      householdId: string;
+      role: UserRole;
+    };
 
     // Create session
     const session = await this.prismaService.prisma.session.create({
@@ -188,7 +224,7 @@ export class AuthService {
     userId: string,
     createPatDto: CreatePersonalAccessTokenDto,
   ): Promise<{ token: string; id: string }> {
-    const user = await this.prismaService.prisma.user.findUnique({
+    const user = (await this.prismaService.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -196,7 +232,12 @@ export class AuthService {
         householdId: true,
         role: true,
       },
-    });
+    })) as {
+      id: string;
+      email: string;
+      householdId: string;
+      role: UserRole;
+    } | null;
 
     if (!user) {
       throw new BadRequestException('User not found');
@@ -233,7 +274,10 @@ export class AuthService {
     };
   }
 
-  async revokePersonalAccessToken(userId: string, tokenId: string): Promise<void> {
+  async revokePersonalAccessToken(
+    userId: string,
+    tokenId: string,
+  ): Promise<void> {
     await this.prismaService.prisma.personalAccessToken.update({
       where: {
         id: tokenId,

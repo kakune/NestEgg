@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 import {
   Controller,
   Get,
@@ -23,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
+import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { Income } from '@prisma/client';
 
 @Controller('incomes')
@@ -30,29 +32,41 @@ import { Income } from '@prisma/client';
 export class IncomesController {
   constructor(private readonly incomesService: IncomesService) {}
 
-  @Get()
-  async findAll(
-    @Query() query: any,
-    @CurrentUser() user: any,
-  ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
+  private getAuthContext(user: AuthenticatedUser): AuthContext {
+    return {
       userId: user.userId,
       householdId: user.householdId,
       role: user.role,
     };
+  }
 
+  @Get()
+  async findAll(
+    @Query() query: any,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<IncomeWithDetails[]> {
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId: query.userId,
       year: query.year ? parseInt(query.year) : undefined,
       month: query.month ? parseInt(query.month) : undefined,
       yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
       yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
-      minAllocatable: query.minAllocatable ? parseInt(query.minAllocatable) : undefined,
-      maxAllocatable: query.maxAllocatable ? parseInt(query.maxAllocatable) : undefined,
+      minAllocatable: query.minAllocatable
+        ? parseInt(query.minAllocatable)
+        : undefined,
+      maxAllocatable: query.maxAllocatable
+        ? parseInt(query.maxAllocatable)
+        : undefined,
       search: query.search,
       limit: query.limit ? parseInt(query.limit) : undefined,
       offset: query.offset ? parseInt(query.offset) : undefined,
-      sortBy: query.sortBy as 'year' | 'month' | 'grossIncomeYen' | 'allocatableYen' | 'createdAt',
+      sortBy: query.sortBy as
+        | 'year'
+        | 'month'
+        | 'grossIncomeYen'
+        | 'allocatableYen'
+        | 'createdAt',
       sortOrder: query.sortOrder as 'asc' | 'desc',
     };
 
@@ -62,14 +76,9 @@ export class IncomesController {
   @Get('statistics')
   async getStatistics(
     @Query() query: any,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeStatistics> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId: query.userId,
       yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
@@ -83,32 +92,26 @@ export class IncomesController {
   async getHouseholdBreakdown(
     @Param('year') year: string,
     @Query('month') month?: string,
-    @CurrentUser() user?: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const yearNum = parseInt(year);
     const monthNum = month ? parseInt(month) : undefined;
 
-    return this.incomesService.getHouseholdIncomeBreakdown(yearNum, monthNum, authContext);
+    return this.incomesService.getHouseholdIncomeBreakdown(
+      yearNum,
+      monthNum,
+      authContext,
+    );
   }
 
   @Get('user/:userId')
   async findByUser(
     @Param('userId') userId: string,
     @Query() query: any,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId,
       year: query.year ? parseInt(query.year) : undefined,
@@ -117,7 +120,12 @@ export class IncomesController {
       yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
       limit: query.limit ? parseInt(query.limit) : undefined,
       offset: query.offset ? parseInt(query.offset) : undefined,
-      sortBy: query.sortBy as 'year' | 'month' | 'grossIncomeYen' | 'allocatableYen' | 'createdAt',
+      sortBy: query.sortBy as
+        | 'year'
+        | 'month'
+        | 'grossIncomeYen'
+        | 'allocatableYen'
+        | 'createdAt',
       sortOrder: query.sortOrder as 'asc' | 'desc',
     };
 
@@ -128,14 +136,9 @@ export class IncomesController {
   async findByUserAndYear(
     @Param('userId') userId: string,
     @Param('year') year: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId,
       year: parseInt(year),
@@ -151,19 +154,13 @@ export class IncomesController {
     @Param('userId') userId: string,
     @Param('year') year: string,
     @Param('month') month: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Income | null> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
     return this.incomesService.findByUserAndMonth(
       userId,
       parseInt(year),
       parseInt(month),
-      authContext,
+      this.getAuthContext(user),
     );
   }
 
@@ -171,22 +168,23 @@ export class IncomesController {
   async findByYear(
     @Param('year') year: string,
     @Query() query: any,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       year: parseInt(year),
       month: query.month ? parseInt(query.month) : undefined,
       userId: query.userId,
       limit: query.limit ? parseInt(query.limit) : undefined,
       offset: query.offset ? parseInt(query.offset) : undefined,
-      sortBy: query.sortBy as 'year' | 'month' | 'grossIncomeYen' | 'allocatableYen' | 'createdAt' || 'month',
-      sortOrder: query.sortOrder as 'asc' | 'desc' || 'asc',
+      sortBy:
+        (query.sortBy as
+          | 'year'
+          | 'month'
+          | 'grossIncomeYen'
+          | 'allocatableYen'
+          | 'createdAt') || 'month',
+      sortOrder: (query.sortOrder as 'asc' | 'desc') || 'asc',
     };
 
     return this.incomesService.findAll(filters, authContext);
@@ -196,14 +194,9 @@ export class IncomesController {
   async searchIncomes(
     @Query('q') searchQuery: string,
     @Query() query: any,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       search: searchQuery,
       userId: query.userId,
@@ -222,14 +215,9 @@ export class IncomesController {
   @Get('recent')
   async findRecent(
     @Query('limit') limit: string = '12', // Default to 12 months
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       limit: parseInt(limit),
       sortBy: 'year',
@@ -242,14 +230,9 @@ export class IncomesController {
   @Get('current-year')
   async findCurrentYear(
     @Query('userId') userId?: string,
-    @CurrentUser() user?: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const currentYear = new Date().getFullYear();
     const filters: IncomeFilters = {
       year: currentYear,
@@ -264,42 +247,30 @@ export class IncomesController {
   @Get(':id')
   async findOne(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.incomesService.findOne(id, authContext);
+    return this.incomesService.findOne(id, this.getAuthContext(user));
   }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Body() createIncomeDto: CreateIncomeDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Income> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.incomesService.create(createIncomeDto, authContext);
+    return this.incomesService.create(
+      createIncomeDto,
+      this.getAuthContext(user),
+    );
   }
 
   @Post('bulk')
   @HttpCode(HttpStatus.CREATED)
   async createBulk(
     @Body() createIncomeDtos: CreateIncomeDto[],
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Income[]> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     const results: Income[] = [];
     for (const dto of createIncomeDtos) {
       try {
@@ -307,7 +278,10 @@ export class IncomesController {
         results.push(income);
       } catch (error) {
         // Log error but continue with other incomes
-        console.error(`Failed to create income for ${dto.userId} ${dto.year}-${dto.month}`, error);
+        console.error(
+          `Failed to create income for ${dto.userId} ${dto.year}-${dto.month}`,
+          error,
+        );
       }
     }
 
@@ -318,28 +292,22 @@ export class IncomesController {
   async update(
     @Param('id') id: string,
     @Body() updateIncomeDto: UpdateIncomeDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Income> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    return this.incomesService.update(id, updateIncomeDto, authContext);
+    return this.incomesService.update(
+      id,
+      updateIncomeDto,
+      this.getAuthContext(user),
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-    await this.incomesService.remove(id, authContext);
+    await this.incomesService.remove(id, this.getAuthContext(user));
   }
 
   @Delete('user/:userId/year/:year')
@@ -347,14 +315,9 @@ export class IncomesController {
   async removeByUserAndYear(
     @Param('userId') userId: string,
     @Param('year') year: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    const authContext: AuthContext = {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-
+    const authContext = this.getAuthContext(user);
     // Find all incomes for the user and year, then delete them
     const filters: IncomeFilters = {
       userId,
@@ -362,7 +325,7 @@ export class IncomesController {
     };
 
     const incomes = await this.incomesService.findAll(filters, authContext);
-    
+
     for (const income of incomes) {
       try {
         await this.incomesService.remove(income.id, authContext);

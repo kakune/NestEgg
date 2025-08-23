@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   NotFoundException,
@@ -6,6 +7,39 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActorType, Actor, UserRole } from '@prisma/client';
+
+// Type for Prisma aggregate result
+interface TransactionAggregate {
+  _sum: { amount: number | null };
+  _count: number;
+}
+
+// Type for actor statistics
+export interface ActorStatistics {
+  actor: {
+    id: string;
+    name: string;
+    type: ActorType;
+  };
+  statistics: {
+    totalTransactions: number;
+    totalIncome: number;
+    totalExpenses: number;
+    netAmount: number;
+    incomeTransactionCount: number;
+    expenseTransactionCount: number;
+    recentTransactions: number;
+  };
+}
+
+// Type for extended Actor with user info
+export interface ActorWithUser extends Actor {
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+  } | null;
+}
 
 export interface AuthContext {
   userId: string;
@@ -30,7 +64,7 @@ export interface UpdateActorDto {
 export class ActorsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async findAll(authContext: AuthContext): Promise<Actor[]> {
+  async findAll(authContext: AuthContext): Promise<ActorWithUser[]> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       return prisma.actor.findMany({
         where: {
@@ -49,11 +83,11 @@ export class ActorsService {
           { type: 'asc' }, // Sort by type first (individual, business, etc.)
           { name: 'asc' }, // Then by name
         ],
-      });
+      }) as Promise<ActorWithUser[]>;
     });
   }
 
-  async findOne(id: string, authContext: AuthContext): Promise<Actor> {
+  async findOne(id: string, authContext: AuthContext): Promise<ActorWithUser> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const actor = await prisma.actor.findFirst({
         where: {
@@ -85,11 +119,14 @@ export class ActorsService {
         throw new NotFoundException('Actor not found');
       }
 
-      return actor;
+      return actor as ActorWithUser;
     });
   }
 
-  async findByUserId(userId: string, authContext: AuthContext): Promise<Actor[]> {
+  async findByUserId(
+    userId: string,
+    authContext: AuthContext,
+  ): Promise<Actor[]> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       return prisma.actor.findMany({
         where: {
@@ -100,13 +137,18 @@ export class ActorsService {
     });
   }
 
-  async create(createActorDto: CreateActorDto, authContext: AuthContext): Promise<Actor> {
+  async create(
+    createActorDto: CreateActorDto,
+    authContext: AuthContext,
+  ): Promise<ActorWithUser> {
     // Determine target user ID
     const targetUserId = createActorDto.userId || authContext.userId;
 
     // Only admins can create actors for other users
     if (createActorDto.userId && authContext.role !== UserRole.admin) {
-      throw new ForbiddenException('Only administrators can create actors for other users');
+      throw new ForbiddenException(
+        'Only administrators can create actors for other users',
+      );
     }
 
     // Verify the target user exists and belongs to the same household
@@ -119,7 +161,9 @@ export class ActorsService {
     });
 
     if (!targetUser) {
-      throw new BadRequestException('Target user not found or not in same household');
+      throw new BadRequestException(
+        'Target user not found or not in same household',
+      );
     }
 
     // Check if the actor name is already taken within the household
@@ -153,28 +197,37 @@ export class ActorsService {
             },
           },
         },
-      });
+      }) as Promise<ActorWithUser>;
     });
   }
 
-  async update(id: string, updateActorDto: UpdateActorDto, authContext: AuthContext): Promise<Actor> {
+  async update(
+    id: string,
+    updateActorDto: UpdateActorDto,
+    authContext: AuthContext,
+  ): Promise<ActorWithUser> {
     const existingActor = await this.findOne(id, authContext);
 
     // Users can only update their own actors unless they are admin
-    if (authContext.role !== UserRole.admin && existingActor.userId !== authContext.userId) {
+    if (
+      authContext.role !== UserRole.admin &&
+      existingActor.userId !== authContext.userId
+    ) {
       throw new ForbiddenException('You can only update your own actors');
     }
 
     // Check name uniqueness if updating name
     if (updateActorDto.name && updateActorDto.name !== existingActor.name) {
-      const existingNameActor = await this.prismaService.prisma.actor.findFirst({
-        where: {
-          name: updateActorDto.name,
-          householdId: authContext.householdId,
-          id: { not: id },
-          deletedAt: null,
+      const existingNameActor = await this.prismaService.prisma.actor.findFirst(
+        {
+          where: {
+            name: updateActorDto.name,
+            householdId: authContext.householdId,
+            id: { not: id },
+            deletedAt: null,
+          },
         },
-      });
+      );
 
       if (existingNameActor) {
         throw new BadRequestException('Actor with this name already exists');
@@ -182,13 +235,15 @@ export class ActorsService {
     }
 
     return this.prismaService.withContext(authContext, async (prisma) => {
+      const updateData: Record<string, unknown> = {};
+      if (updateActorDto.name) updateData.name = updateActorDto.name;
+      if (updateActorDto.type) updateData.type = updateActorDto.type;
+      if (updateActorDto.description !== undefined)
+        updateData.description = updateActorDto.description;
+
       return prisma.actor.update({
         where: { id },
-        data: {
-          ...(updateActorDto.name && { name: updateActorDto.name }),
-          ...(updateActorDto.type && { type: updateActorDto.type }),
-          ...(updateActorDto.description !== undefined && { description: updateActorDto.description }),
-        },
+        data: updateData,
         include: {
           user: {
             select: {
@@ -198,7 +253,7 @@ export class ActorsService {
             },
           },
         },
-      });
+      }) as Promise<ActorWithUser>;
     });
   }
 
@@ -206,7 +261,10 @@ export class ActorsService {
     const existingActor = await this.findOne(id, authContext);
 
     // Users can only delete their own actors unless they are admin
-    if (authContext.role !== UserRole.admin && existingActor.userId !== authContext.userId) {
+    if (
+      authContext.role !== UserRole.admin &&
+      existingActor.userId !== authContext.userId
+    ) {
       throw new ForbiddenException('You can only delete your own actors');
     }
 
@@ -216,7 +274,9 @@ export class ActorsService {
     });
 
     if (transactionCount > 0) {
-      throw new BadRequestException('Cannot delete actor with existing transactions');
+      throw new BadRequestException(
+        'Cannot delete actor with existing transactions',
+      );
     }
 
     await this.prismaService.withContext(authContext, async (prisma) => {
@@ -227,58 +287,63 @@ export class ActorsService {
     });
   }
 
-  async getActorStats(id: string, authContext: AuthContext): Promise<any> {
-    const actor = await this.findOne(id, authContext);
+  async getActorStats(
+    id: string,
+    authContext: AuthContext,
+  ): Promise<ActorStatistics> {
+    const actor: ActorWithUser = await this.findOne(id, authContext);
 
     return this.prismaService.withContext(authContext, async (prisma) => {
-      const [transactionCount, totalIncome, totalExpenses, recentTransactions] = await Promise.all([
-        // Total transaction count
-        prisma.transaction.count({
-          where: { actorId: id },
-        }),
+      const [transactionCount, totalIncome, totalExpenses, recentTransactions] =
+        await Promise.all([
+          // Total transaction count
+          prisma.transaction.count({
+            where: { actorId: id },
+          }),
 
-        // Total income transactions
-        prisma.transaction.aggregate({
-          where: {
-            actorId: id,
-            amount: { gt: 0 },
-          },
-          _sum: { amount: true },
-          _count: true,
-        }),
-
-        // Total expense transactions
-        prisma.transaction.aggregate({
-          where: {
-            actorId: id,
-            amount: { lt: 0 },
-          },
-          _sum: { amount: true },
-          _count: true,
-        }),
-
-        // Recent transactions (last 30 days)
-        prisma.transaction.count({
-          where: {
-            actorId: id,
-            date: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          // Total income transactions
+          prisma.transaction.aggregate({
+            where: {
+              actorId: id,
+              amount: { gt: 0 },
             },
-          },
-        }),
-      ]);
+            _sum: { amount: true },
+            _count: true,
+          }) as Promise<TransactionAggregate>,
+
+          // Total expense transactions
+          prisma.transaction.aggregate({
+            where: {
+              actorId: id,
+              amount: { lt: 0 },
+            },
+            _sum: { amount: true },
+            _count: true,
+          }) as Promise<TransactionAggregate>,
+
+          // Recent transactions (last 30 days)
+          prisma.transaction.count({
+            where: {
+              actorId: id,
+              date: {
+                gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+          }),
+        ]);
 
       return {
         actor: {
           id: actor.id,
           name: actor.name,
-          type: actor.type,
+          type: actor.type as ActorType,
         },
         statistics: {
           totalTransactions: transactionCount,
-          totalIncome: totalIncome._sum.amount || 0,
-          totalExpenses: Math.abs(totalExpenses._sum.amount || 0),
-          netAmount: (totalIncome._sum.amount || 0) + (totalExpenses._sum.amount || 0),
+          totalIncome: totalIncome._sum.amount ?? 0,
+          totalExpenses: Math.abs(totalExpenses._sum.amount ?? 0),
+          netAmount:
+            (totalIncome._sum.amount ?? 0) + (totalExpenses._sum.amount ?? 0),
           incomeTransactionCount: totalIncome._count,
           expenseTransactionCount: totalExpenses._count,
           recentTransactions: recentTransactions,

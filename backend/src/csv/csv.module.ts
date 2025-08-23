@@ -9,11 +9,11 @@ import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
   imports: [
-    PrismaModule, 
-    TransactionsModule, 
-    IncomesModule, 
-    ActorsModule, 
-    CategoriesModule
+    PrismaModule,
+    TransactionsModule,
+    IncomesModule,
+    ActorsModule,
+    CategoriesModule,
   ],
   controllers: [CsvController],
   providers: [CsvService],

@@ -3,7 +3,9 @@ import { registerAs } from '@nestjs/config';
 export default registerAs('config', () => ({
   // Database Configuration
   database: {
-    url: process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/nestegg?schema=public',
+    url:
+      process.env.DATABASE_URL ||
+      'postgresql://user:password@localhost:5432/nestegg?schema=public',
   },
 
   // JWT Configuration

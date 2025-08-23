@@ -102,7 +102,10 @@ export class UsersService {
     });
   }
 
-  async create(createUserDto: CreateUserDto, authContext: AuthContext): Promise<User> {
+  async create(
+    createUserDto: CreateUserDto,
+    authContext: AuthContext,
+  ): Promise<User> {
     // Only admins can create users
     if (authContext.role !== UserRole.admin) {
       throw new ForbiddenException('Only administrators can create users');
@@ -148,8 +151,13 @@ export class UsersService {
     });
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, authContext: AuthContext): Promise<User> {
-    const existingUser = await this.findOne(id, authContext);
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    authContext: AuthContext,
+  ): Promise<User> {
+    // Verify user exists (will throw if not found)
+    await this.findOne(id, authContext);
 
     // Users can only update themselves unless they are admin
     if (authContext.role !== UserRole.admin && authContext.userId !== id) {
@@ -162,7 +170,11 @@ export class UsersService {
     }
 
     // Prevent self-demotion from admin if they are the only admin
-    if (updateUserDto.role && updateUserDto.role !== UserRole.admin && authContext.userId === id) {
+    if (
+      updateUserDto.role &&
+      updateUserDto.role !== UserRole.admin &&
+      authContext.userId === id
+    ) {
       const adminCount = await this.prismaService.prisma.user.count({
         where: {
           householdId: authContext.householdId,
@@ -172,14 +184,20 @@ export class UsersService {
       });
 
       if (adminCount <= 1) {
-        throw new BadRequestException('Cannot remove admin role - at least one admin must remain');
+        throw new BadRequestException(
+          'Cannot remove admin role - at least one admin must remain',
+        );
       }
     }
 
     // Check email uniqueness if updating email
     if (updateUserDto.email) {
       const existingEmailUser = await this.findByEmail(updateUserDto.email);
-      if (existingEmailUser && existingEmailUser.id !== id && !existingEmailUser.deletedAt) {
+      if (
+        existingEmailUser &&
+        existingEmailUser.id !== id &&
+        !existingEmailUser.deletedAt
+      ) {
         throw new ConflictException('User with this email already exists');
       }
     }
@@ -190,7 +208,9 @@ export class UsersService {
         data: {
           ...(updateUserDto.name && { name: updateUserDto.name }),
           ...(updateUserDto.role && { role: updateUserDto.role }),
-          ...(updateUserDto.email && { email: updateUserDto.email.toLowerCase() }),
+          ...(updateUserDto.email && {
+            email: updateUserDto.email.toLowerCase(),
+          }),
         },
         select: {
           id: true,
@@ -237,7 +257,10 @@ export class UsersService {
     }
 
     const saltRounds = this.configService.get<number>('BCRYPT_ROUNDS', 12);
-    const newPasswordHash = await bcrypt.hash(changePasswordDto.newPassword, saltRounds);
+    const newPasswordHash = await bcrypt.hash(
+      changePasswordDto.newPassword,
+      saltRounds,
+    );
 
     await this.prismaService.withContext(authContext, async (prisma) => {
       await prisma.user.update({
@@ -296,7 +319,8 @@ export class UsersService {
   }
 
   private generateTemporaryPassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
     for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));

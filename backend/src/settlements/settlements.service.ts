@@ -1,11 +1,18 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Settlement, SettlementLine, SettlementStatus, ApportionmentPolicy, UserRole, RoundingPolicy } from '@prisma/client';
+import {
+  Settlement,
+  SettlementLine,
+  SettlementStatus,
+  ApportionmentPolicy,
+  UserRole,
+  RoundingPolicy,
+} from '@prisma/client';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
 
 export interface YearMonth {
@@ -55,29 +62,45 @@ export class SettlementsService {
         },
       });
 
-      if (existingSettlement && existingSettlement.status === SettlementStatus.FINALIZED) {
-        throw new ConflictException(`Settlement for ${month.year}-${month.month} is already finalized`);
+      if (
+        existingSettlement &&
+        existingSettlement.status === SettlementStatus.FINALIZED
+      ) {
+        throw new ConflictException(
+          `Settlement for ${month.year}-${month.month} is already finalized`,
+        );
       }
 
       // 1. Load data
-      const transactions = await this.loadMonthTransactions(prisma, householdId, month);
+      const transactions = await this.loadMonthTransactions(
+        prisma,
+        householdId,
+        month,
+      );
       const incomes = await this.loadMonthIncomes(prisma, householdId, month);
       const policy = await this.getHouseholdPolicy(prisma, householdId);
 
       // 2. Compute household expense apportionment
-      const householdExpenses = transactions.filter(t => 
-        t.type === 'EXPENSE' && t.shouldPay === 'HOUSEHOLD'
+      const householdExpenses = transactions.filter(
+        (t) => t.type === 'EXPENSE' && t.shouldPay === 'HOUSEHOLD',
       );
-      const weights = this.computeIncomeWeights(incomes, policy.apportionmentZeroIncome);
-      const shares = this.apportionExpenses(householdExpenses, weights, policy.rounding);
+      const weights = this.computeIncomeWeights(
+        incomes,
+        policy.apportionmentZeroIncome,
+      );
+      const shares = this.apportionExpenses(
+        householdExpenses,
+        weights,
+        policy.rounding,
+      );
 
       // 3. Calculate actual payments per user
       const actualPayments = this.calculateActualPayments(householdExpenses);
       const householdDeltas = this.computeDeltas(actualPayments, shares);
 
       // 4. Build reimbursement matrix
-      const personalExpenses = transactions.filter(t => 
-        t.type === 'EXPENSE' && t.shouldPay === 'USER'
+      const personalExpenses = transactions.filter(
+        (t) => t.type === 'EXPENSE' && t.shouldPay === 'USER',
       );
       const reimbursements = this.buildReimbursementMatrix(personalExpenses);
 
@@ -148,7 +171,10 @@ export class SettlementsService {
   /**
    * Get settlement by ID
    */
-  async findOne(settlementId: string, authContext: AuthContext): Promise<SettlementWithLines> {
+  async findOne(
+    settlementId: string,
+    authContext: AuthContext,
+  ): Promise<SettlementWithLines> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const settlement = await prisma.settlement.findFirst({
         where: {
@@ -180,17 +206,18 @@ export class SettlementsService {
         include: {
           lines: true,
         },
-        orderBy: [
-          { year: 'desc' },
-          { month: 'desc' },
-        ],
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
       });
     });
   }
 
   // Private helper methods
 
-  private async loadMonthTransactions(prisma: any, householdId: string, month: YearMonth) {
+  private async loadMonthTransactions(
+    prisma: PrismaService['prisma'],
+    householdId: string,
+    month: YearMonth,
+  ) {
     return prisma.transaction.findMany({
       where: {
         householdId,
@@ -207,7 +234,11 @@ export class SettlementsService {
     });
   }
 
-  private async loadMonthIncomes(prisma: any, householdId: string, month: YearMonth) {
+  private async loadMonthIncomes(
+    prisma: PrismaService['prisma'],
+    householdId: string,
+    month: YearMonth,
+  ) {
     return prisma.income.findMany({
       where: {
         householdId,
@@ -221,25 +252,33 @@ export class SettlementsService {
     });
   }
 
-  private async getHouseholdPolicy(prisma: any, householdId: string) {
+  private async getHouseholdPolicy(
+    prisma: PrismaService['prisma'],
+    householdId: string,
+  ) {
     const policy = await prisma.policy.findUnique({
       where: { householdId },
     });
 
-    return policy || {
-      apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
-      rounding: RoundingPolicy.ROUND,
-    };
+    return (
+      policy || {
+        apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
+        rounding: RoundingPolicy.ROUND,
+      }
+    );
   }
 
   private computeIncomeWeights(
-    incomes: any[],
+    incomes: Array<{ userId: string; allocatableYen: number }>,
     apportionmentZeroIncome: ApportionmentPolicy,
   ): Map<string, number> {
     const weights = new Map<string, number>();
-    
+
     // Calculate total allocatable income
-    const totalAllocatable = incomes.reduce((sum, income) => sum + income.allocatableYen, 0);
+    const totalAllocatable = incomes.reduce(
+      (sum, income) => sum + income.allocatableYen,
+      0,
+    );
 
     if (totalAllocatable === 0) {
       // Handle zero income scenario based on policy
@@ -248,13 +287,13 @@ export class SettlementsService {
       } else {
         // MIN_SHARE: equal distribution
         const equalWeight = 1 / incomes.length;
-        incomes.forEach(income => {
+        incomes.forEach((income) => {
           weights.set(income.userId, equalWeight);
         });
       }
     } else {
       // Normal case: weight by income proportion
-      incomes.forEach(income => {
+      incomes.forEach((income) => {
         weights.set(income.userId, income.allocatableYen / totalAllocatable);
       });
     }
@@ -263,12 +302,17 @@ export class SettlementsService {
   }
 
   private apportionExpenses(
-    expenses: any[],
+    expenses: Array<{
+      amountYen: number;
+      actorId: string;
+      userId: string | null;
+      shouldPay: boolean;
+    }>,
     weights: Map<string, number>,
     rounding: RoundingPolicy,
   ): Map<string, number> {
     const shares = new Map<string, number>();
-    
+
     // Initialize shares
     for (const userId of weights.keys()) {
       shares.set(userId, 0);
@@ -277,7 +321,7 @@ export class SettlementsService {
     // Apportion each expense
     for (const expense of expenses) {
       const totalAmount = Math.abs(expense.amountYen);
-      
+
       for (const [userId, weight] of weights.entries()) {
         const share = totalAmount * weight;
         const roundedShare = this.applyRounding(share, rounding);
@@ -288,7 +332,15 @@ export class SettlementsService {
     return shares;
   }
 
-  private calculateActualPayments(expenses: any[]): Map<string, number> {
+  private calculateActualPayments(
+    expenses: Array<{
+      amountYen: number;
+      payerUserId: string;
+      actorId: string;
+      userId: string | null;
+      shouldPay: boolean;
+    }>,
+  ): Map<string, number> {
     const payments = new Map<string, number>();
 
     for (const expense of expenses) {
@@ -318,7 +370,16 @@ export class SettlementsService {
     return deltas;
   }
 
-  private buildReimbursementMatrix(personalExpenses: any[]): Map<string, number> {
+  private buildReimbursementMatrix(
+    personalExpenses: Array<{
+      amountYen: number;
+      payerUserId: string;
+      shouldPayUserId: string;
+      actorId: string;
+      userId: string | null;
+      shouldPay: boolean;
+    }>,
+  ): Map<string, number> {
     const reimbursements = new Map<string, number>();
 
     for (const expense of personalExpenses) {
@@ -328,8 +389,14 @@ export class SettlementsService {
       if (payerId !== beneficiaryId) {
         // Payer should receive reimbursement from beneficiary
         const amount = Math.abs(expense.amountYen);
-        reimbursements.set(payerId, (reimbursements.get(payerId) || 0) + amount);
-        reimbursements.set(beneficiaryId, (reimbursements.get(beneficiaryId) || 0) - amount);
+        reimbursements.set(
+          payerId,
+          (reimbursements.get(payerId) || 0) + amount,
+        );
+        reimbursements.set(
+          beneficiaryId,
+          (reimbursements.get(beneficiaryId) || 0) - amount,
+        );
       }
     }
 
@@ -343,7 +410,10 @@ export class SettlementsService {
     const balances = new Map<string, number>();
 
     // Get all user IDs
-    const allUserIds = new Set([...householdDeltas.keys(), ...reimbursements.keys()]);
+    const allUserIds = new Set([
+      ...householdDeltas.keys(),
+      ...reimbursements.keys(),
+    ]);
 
     for (const userId of allUserIds) {
       const householdDelta = householdDeltas.get(userId) || 0;
@@ -357,7 +427,9 @@ export class SettlementsService {
   /**
    * Greedy netting algorithm to minimize number of transfers
    */
-  private greedyNetting(balances: Map<string, number>): CreateSettlementLineDto[] {
+  private greedyNetting(
+    balances: Map<string, number>,
+  ): CreateSettlementLineDto[] {
     // Create mutable copy of balances
     const workingBalances = new Map(balances);
 
@@ -375,7 +447,7 @@ export class SettlementsService {
     for (const [payerId, payerBalance] of payers) {
       let remaining = Math.abs(payerBalance);
 
-      for (const [receiverId, receiverBalance] of receivers) {
+      for (const [receiverId] of receivers) {
         if (remaining === 0 || workingBalances.get(receiverId)! <= 0) continue;
 
         const currentReceiverBalance = workingBalances.get(receiverId)!;
@@ -390,7 +462,10 @@ export class SettlementsService {
           });
 
           remaining -= transferAmount;
-          workingBalances.set(receiverId, currentReceiverBalance - transferAmount);
+          workingBalances.set(
+            receiverId,
+            currentReceiverBalance - transferAmount,
+          );
         }
       }
     }
@@ -399,7 +474,7 @@ export class SettlementsService {
   }
 
   private async upsertDraftSettlement(
-    prisma: any,
+    prisma: PrismaService['prisma'],
     householdId: string,
     month: YearMonth,
     settlementLines: CreateSettlementLineDto[],

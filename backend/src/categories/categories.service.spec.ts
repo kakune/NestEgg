@@ -1,17 +1,22 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { CategoriesService, AuthContext, CreateCategoryDto, UpdateCategoryDto } from './categories.service';
+import {
+  CategoriesService,
+  AuthContext,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from './categories.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Category } from '@prisma/client';
+import { Category, UserRole } from '@prisma/client';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
-  let prismaService: PrismaService;
 
   const mockAuthContext: AuthContext = {
     userId: 'user-1',
     householdId: 'household-1',
-    role: 'admin' as any,
+    role: UserRole.admin,
   };
 
   const mockCategory: Category = {
@@ -106,12 +111,12 @@ describe('CategoriesService', () => {
     it('should filter categories by household', async () => {
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findMany: jest.fn().mockImplementation(({ where }) => {
-                expect(where.householdId).toBe(mockAuthContext.householdId);
-                return Promise.resolve([mockCategory]);
-              }),
-            },
+          category: {
+            findMany: jest.fn().mockImplementation(({ where }) => {
+              expect(where.householdId).toBe(mockAuthContext.householdId);
+              return Promise.resolve([mockCategory]);
+            }),
+          },
         });
       });
 
@@ -130,9 +135,9 @@ describe('CategoriesService', () => {
 
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+          },
         });
       });
 
@@ -144,26 +149,27 @@ describe('CategoriesService', () => {
     it('should throw NotFoundException when category not found', async () => {
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(null),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
         });
       });
 
-      await expect(service.findOne('nonexistent', mockAuthContext))
-        .rejects.toThrow(NotFoundException);
+      await expect(
+        service.findOne('nonexistent', mockAuthContext),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should verify household isolation', async () => {
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockImplementation(({ where }) => {
-                expect(where.householdId).toBe(mockAuthContext.householdId);
-                expect(where.id).toBe('category-1');
-                return Promise.resolve(mockCategory);
-              }),
-            },
+          category: {
+            findFirst: jest.fn().mockImplementation(({ where }) => {
+              expect(where.householdId).toBe(mockAuthContext.householdId);
+              expect(where.id).toBe('category-1');
+              return Promise.resolve(mockCategory);
+            }),
+          },
         });
       });
 
@@ -181,9 +187,9 @@ describe('CategoriesService', () => {
       mockPrismaService.prisma.category.findFirst.mockResolvedValue(null); // No existing category
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              create: jest.fn().mockResolvedValue(mockCategory),
-            },
+          category: {
+            create: jest.fn().mockResolvedValue(mockCategory),
+          },
         });
       });
 
@@ -222,13 +228,16 @@ describe('CategoriesService', () => {
 
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              create: jest.fn().mockResolvedValue(mockChildCategory),
-            },
+          category: {
+            create: jest.fn().mockResolvedValue(mockChildCategory),
+          },
         });
       });
 
-      const result = await service.create(createChildCategoryDto, mockAuthContext);
+      const result = await service.create(
+        createChildCategoryDto,
+        mockAuthContext,
+      );
 
       expect(result).toEqual(mockChildCategory);
     });
@@ -241,15 +250,19 @@ describe('CategoriesService', () => {
 
       mockPrismaService.prisma.category.findFirst.mockResolvedValue(null);
 
-      await expect(service.create(createCategoryDto, mockAuthContext))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.create(createCategoryDto, mockAuthContext),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when category name already exists at same level', async () => {
-      mockPrismaService.prisma.category.findFirst.mockResolvedValue(mockCategory);
+      mockPrismaService.prisma.category.findFirst.mockResolvedValue(
+        mockCategory,
+      );
 
-      await expect(service.create(createCategoryDto, mockAuthContext))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.create(createCategoryDto, mockAuthContext),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when depth exceeds limit', async () => {
@@ -271,8 +284,9 @@ describe('CategoriesService', () => {
         .mockResolvedValueOnce({ parentId: 'level-1' })
         .mockResolvedValueOnce({ parentId: null });
 
-      await expect(service.create(createCategoryDto, mockAuthContext))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.create(createCategoryDto, mockAuthContext),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -294,17 +308,19 @@ describe('CategoriesService', () => {
         .mockImplementationOnce((context, fn) => {
           // For findOne call
           return fn({
-              category: {
-                findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-              },
+            category: {
+              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+            },
           });
         })
         .mockImplementationOnce((context, fn) => {
           // For update call
           return fn({
-              category: {
-                update: jest.fn().mockResolvedValue({ ...mockCategory, ...updateCategoryDto }),
-              },
+            category: {
+              update: jest
+                .fn()
+                .mockResolvedValue({ ...mockCategory, ...updateCategoryDto }),
+            },
           });
         });
 
@@ -312,7 +328,11 @@ describe('CategoriesService', () => {
       mockPrismaService.prisma.category.findFirst.mockReset();
       mockPrismaService.prisma.category.findFirst.mockResolvedValue(null); // No name conflict
 
-      const result = await service.update('category-1', updateCategoryDto, mockAuthContext);
+      const result = await service.update(
+        'category-1',
+        updateCategoryDto,
+        mockAuthContext,
+      );
 
       expect(result.name).toBe(updateCategoryDto.name);
       expect(result.description).toBe(updateCategoryDto.description);
@@ -332,14 +352,18 @@ describe('CategoriesService', () => {
       // Only need one withContext call for findOne - the self-reference check prevents further execution
       mockPrismaService.withContext.mockImplementationOnce((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+          },
         });
       });
 
       await expect(
-        service.update('category-1', { parentId: 'category-1' }, mockAuthContext)
+        service.update(
+          'category-1',
+          { parentId: 'category-1' },
+          mockAuthContext,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -356,20 +380,26 @@ describe('CategoriesService', () => {
 
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+          },
         });
       });
 
       // Mock parent exists and descendant check
-      mockPrismaService.prisma.category.findFirst.mockResolvedValue(mockCategory);
+      mockPrismaService.prisma.category.findFirst.mockResolvedValue(
+        mockCategory,
+      );
       mockPrismaService.prisma.category.findMany
         .mockResolvedValueOnce([mockChildCategory]) // Child exists
         .mockResolvedValueOnce([]); // No further children
 
       await expect(
-        service.update('category-1', { parentId: 'category-2' }, mockAuthContext)
+        service.update(
+          'category-1',
+          { parentId: 'category-2' },
+          mockAuthContext,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -388,9 +418,9 @@ describe('CategoriesService', () => {
       // Setup findOne call through withContext
       mockPrismaService.withContext.mockImplementationOnce((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+          },
         });
       });
 
@@ -401,7 +431,11 @@ describe('CategoriesService', () => {
       });
 
       await expect(
-        service.update('category-1', { name: 'Existing Name' }, mockAuthContext)
+        service.update(
+          'category-1',
+          { name: 'Existing Name' },
+          mockAuthContext,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -419,17 +453,17 @@ describe('CategoriesService', () => {
         .mockImplementationOnce((context, fn) => {
           // For findOne call
           return fn({
-              category: {
-                findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-              },
+            category: {
+              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+            },
           });
         })
         .mockImplementationOnce((context, fn) => {
           // For delete call
           return fn({
-              category: {
-                update: jest.fn().mockResolvedValue(undefined),
-              },
+            category: {
+              update: jest.fn().mockResolvedValue(undefined),
+            },
           });
         });
 
@@ -456,16 +490,17 @@ describe('CategoriesService', () => {
 
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+          },
         });
       });
 
       mockPrismaService.prisma.category.count.mockResolvedValue(1); // Has children
 
-      await expect(service.remove('category-1', mockAuthContext))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.remove('category-1', mockAuthContext),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when category has transactions', async () => {
@@ -478,23 +513,29 @@ describe('CategoriesService', () => {
 
       mockPrismaService.withContext.mockImplementation((context, fn) => {
         return fn({
-            category: {
-              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-            },
+          category: {
+            findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+          },
         });
       });
 
       mockPrismaService.prisma.category.count.mockResolvedValue(0); // No children
       mockPrismaService.prisma.transaction.count.mockResolvedValue(1); // Has transactions
 
-      await expect(service.remove('category-1', mockAuthContext))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.remove('category-1', mockAuthContext),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('getCategoryPath', () => {
     it('should return category path from root to leaf', async () => {
-      const rootCategory = { ...mockCategory, id: 'root', name: 'Root', parent: null };
+      const rootCategory = {
+        ...mockCategory,
+        id: 'root',
+        name: 'Root',
+        parent: null,
+      };
       const childCategory = {
         ...mockCategory,
         id: 'child',
@@ -507,17 +548,17 @@ describe('CategoriesService', () => {
         .mockImplementationOnce((context, fn) => {
           // First call for child category
           return fn({
-              category: {
-                findFirst: jest.fn().mockResolvedValue(childCategory),
-              },
+            category: {
+              findFirst: jest.fn().mockResolvedValue(childCategory),
+            },
           });
         })
         .mockImplementationOnce((context, fn) => {
           // Second call for root category
           return fn({
-              category: {
-                findFirst: jest.fn().mockResolvedValue(rootCategory),
-              },
+            category: {
+              findFirst: jest.fn().mockResolvedValue(rootCategory),
+            },
           });
         });
 
@@ -542,28 +583,31 @@ describe('CategoriesService', () => {
         .mockImplementationOnce((context, fn) => {
           // For findOne call
           return fn({
-              category: {
-                findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
-              },
+            category: {
+              findFirst: jest.fn().mockResolvedValue(mockCategoryWithDetails),
+            },
           });
         })
         .mockImplementationOnce((context, fn) => {
           // For stats calculation
           return fn({
-              transaction: {
-                count: jest.fn().mockResolvedValue(5),
-                aggregate: jest.fn().mockResolvedValue({
-                  _sum: { amount: 1000 },
-                  _count: 5,
-                }),
-              },
+            transaction: {
+              count: jest.fn().mockResolvedValue(5),
+              aggregate: jest.fn().mockResolvedValue({
+                _sum: { amount: 1000 },
+                _count: 5,
+              }),
+            },
           });
         });
 
       // Mock getAllDescendants
       mockPrismaService.prisma.category.findMany.mockResolvedValue([]); // No descendants
 
-      const result = await service.getCategoryStats('category-1', mockAuthContext);
+      const result = await service.getCategoryStats(
+        'category-1',
+        mockAuthContext,
+      );
 
       expect(result.category.id).toBe('category-1');
       expect(result.statistics.directTransactions).toBe(5);
@@ -580,7 +624,10 @@ describe('CategoriesService', () => {
           .mockResolvedValueOnce({ parentId: null });
 
         // Access private method for testing
-        const depth = await (service as any).getCategoryDepth('category-1', mockAuthContext);
+        const depth = await (service as any).getCategoryDepth(
+          'category-1',
+          mockAuthContext,
+        );
 
         expect(depth).toBe(3);
       });
@@ -588,15 +635,15 @@ describe('CategoriesService', () => {
       it('should throw error for excessive depth', async () => {
         // Clear previous mocks
         mockPrismaService.prisma.category.findFirst.mockReset();
-        
+
         // Mock deep hierarchy that exceeds limit (always return a parent to create infinite loop)
         // This will make it always find a category with a parent, causing infinite depth
-        mockPrismaService.prisma.category.findFirst.mockImplementation(() => 
-          Promise.resolve({ parentId: 'infinite-parent' })
+        mockPrismaService.prisma.category.findFirst.mockImplementation(() =>
+          Promise.resolve({ parentId: 'infinite-parent' }),
         );
 
         await expect(
-          (service as any).getCategoryDepth('category-1', mockAuthContext)
+          (service as any).getCategoryDepth('category-1', mockAuthContext),
         ).rejects.toThrow(BadRequestException);
       });
     });
@@ -610,7 +657,7 @@ describe('CategoriesService', () => {
         const result = await (service as any).wouldCreateCircularReference(
           'category-1',
           'descendant-1',
-          mockAuthContext
+          mockAuthContext,
         );
 
         expect(result).toBe(true);
@@ -622,7 +669,7 @@ describe('CategoriesService', () => {
         const result = await (service as any).wouldCreateCircularReference(
           'category-1',
           'unrelated-category',
-          mockAuthContext
+          mockAuthContext,
         );
 
         expect(result).toBe(false);
@@ -640,10 +687,17 @@ describe('CategoriesService', () => {
           .mockResolvedValueOnce([grandchild1]) // Children of child-1
           .mockResolvedValueOnce([]); // Children of child-2
 
-        const descendants = await (service as any).getAllDescendants('category-1', mockAuthContext);
+        const descendants = await (service as any).getAllDescendants(
+          'category-1',
+          mockAuthContext,
+        );
 
         expect(descendants).toHaveLength(3);
-        expect(descendants.map((d: any) => d.id)).toEqual(['child-1', 'grandchild-1', 'child-2']);
+        expect(descendants.map((d: any) => d.id)).toEqual([
+          'child-1',
+          'grandchild-1',
+          'child-2',
+        ]);
       });
 
       it('should handle circular references gracefully', async () => {
@@ -651,12 +705,15 @@ describe('CategoriesService', () => {
         jest.clearAllMocks();
 
         const child1 = { id: 'child-1', parentId: 'category-1' };
-        
+
         mockPrismaService.prisma.category.findMany
           .mockResolvedValueOnce([child1]) // Children of category-1
           .mockResolvedValueOnce([]); // No children of child-1 (prevent circular)
 
-        const descendants = await (service as any).getAllDescendants('category-1', mockAuthContext);
+        const descendants = await (service as any).getAllDescendants(
+          'category-1',
+          mockAuthContext,
+        );
 
         expect(descendants).toHaveLength(1); // Should only return child-1
         expect(descendants[0].id).toBe('child-1');

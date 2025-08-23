@@ -1,4 +1,4 @@
-import { Controller, Get, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import {
   HealthCheckService,
   HealthCheck,
@@ -32,7 +32,8 @@ export class HealthController {
       // () => this.checkDatabase(), // Temporarily disabled until PrismaService is fixed
       () => this.memory.checkHeap('memory_heap', 150 * 1024 * 1024),
       () => this.memory.checkRSS('memory_rss', 150 * 1024 * 1024),
-      () => this.disk.checkStorage('storage', { thresholdPercent: 0.9, path: '/' }),
+      () =>
+        this.disk.checkStorage('storage', { thresholdPercent: 0.9, path: '/' }),
     ]);
   }
 

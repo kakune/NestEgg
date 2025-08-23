@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-plus-operands */
 import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Category, UserRole } from '@prisma/client';
@@ -37,7 +37,7 @@ export class CategoriesService {
   async findAll(authContext: AuthContext): Promise<CategoryWithChildren[]> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       // Get all categories and build the tree structure
-      const categories = await prisma.category.findMany({
+      const categories = (await prisma.category.findMany({
         where: {
           householdId: authContext.householdId,
         },
@@ -54,14 +54,17 @@ export class CategoriesService {
           },
         },
         orderBy: { name: 'asc' },
-      });
+      })) as CategoryWithChildren[];
 
       // Return only root categories (those without parents)
-      return categories.filter(category => category.parentId === null);
+      return categories.filter((category) => category.parentId === null);
     });
   }
 
-  async findOne(id: string, authContext: AuthContext): Promise<CategoryWithChildren> {
+  async findOne(
+    id: string,
+    authContext: AuthContext,
+  ): Promise<CategoryWithChildren> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const category = await prisma.category.findFirst({
         where: {
@@ -92,11 +95,14 @@ export class CategoriesService {
         throw new NotFoundException('Category not found');
       }
 
-      return category;
+      return category as CategoryWithChildren;
     });
   }
 
-  async create(createCategoryDto: CreateCategoryDto, authContext: AuthContext): Promise<Category> {
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    authContext: AuthContext,
+  ): Promise<Category> {
     // Check if parent exists and belongs to the same household
     if (createCategoryDto.parentId) {
       const parent = await this.prismaService.prisma.category.findFirst({
@@ -108,28 +114,39 @@ export class CategoriesService {
       });
 
       if (!parent) {
-        throw new BadRequestException('Parent category not found or not in same household');
+        throw new BadRequestException(
+          'Parent category not found or not in same household',
+        );
       }
 
       // Check depth limit (prevent nesting too deep)
-      const depth = await this.getCategoryDepth(createCategoryDto.parentId, authContext);
+      const depth = await this.getCategoryDepth(
+        createCategoryDto.parentId,
+        authContext,
+      );
       if (depth >= 5) {
-        throw new BadRequestException('Category nesting cannot exceed 5 levels');
+        throw new BadRequestException(
+          'Category nesting cannot exceed 5 levels',
+        );
       }
     }
 
     // Check if category name is unique within the same parent
-    const existingCategory = await this.prismaService.prisma.category.findFirst({
-      where: {
-        name: createCategoryDto.name,
-        parentId: createCategoryDto.parentId || null,
-        householdId: authContext.householdId,
-        deletedAt: null,
+    const existingCategory = await this.prismaService.prisma.category.findFirst(
+      {
+        where: {
+          name: createCategoryDto.name,
+          parentId: createCategoryDto.parentId || null,
+          householdId: authContext.householdId,
+          deletedAt: null,
+        },
       },
-    });
+    );
 
     if (existingCategory) {
-      throw new BadRequestException('Category with this name already exists at this level');
+      throw new BadRequestException(
+        'Category with this name already exists at this level',
+      );
     }
 
     return this.prismaService.withContext(authContext, async (prisma) => {
@@ -148,7 +165,11 @@ export class CategoriesService {
     });
   }
 
-  async update(id: string, updateCategoryDto: UpdateCategoryDto, authContext: AuthContext): Promise<Category> {
+  async update(
+    id: string,
+    updateCategoryDto: UpdateCategoryDto,
+    authContext: AuthContext,
+  ): Promise<Category> {
     const existingCategory = await this.findOne(id, authContext);
 
     // If updating parent, validate the new hierarchy
@@ -166,13 +187,20 @@ export class CategoriesService {
           authContext,
         );
         if (wouldCreateCircle) {
-          throw new BadRequestException('Moving category would create a circular reference');
+          throw new BadRequestException(
+            'Moving category would create a circular reference',
+          );
         }
 
         // Check depth limit
-        const depth = await this.getCategoryDepth(updateCategoryDto.parentId, authContext);
+        const depth = await this.getCategoryDepth(
+          updateCategoryDto.parentId,
+          authContext,
+        );
         if (depth >= 5) {
-          throw new BadRequestException('Category nesting cannot exceed 5 levels');
+          throw new BadRequestException(
+            'Category nesting cannot exceed 5 levels',
+          );
         }
 
         // Ensure parent exists and belongs to same household
@@ -185,29 +213,38 @@ export class CategoriesService {
         });
 
         if (!parent) {
-          throw new BadRequestException('Parent category not found or not in same household');
+          throw new BadRequestException(
+            'Parent category not found or not in same household',
+          );
         }
       }
     }
 
     // Check name uniqueness if updating name
-    if (updateCategoryDto.name && updateCategoryDto.name !== existingCategory.name) {
-      const parentId = updateCategoryDto.parentId !== undefined
-        ? updateCategoryDto.parentId
-        : existingCategory.parentId;
+    if (
+      updateCategoryDto.name &&
+      updateCategoryDto.name !== existingCategory.name
+    ) {
+      const parentId =
+        updateCategoryDto.parentId !== undefined
+          ? updateCategoryDto.parentId
+          : existingCategory.parentId;
 
-      const existingNameCategory = await this.prismaService.prisma.category.findFirst({
-        where: {
-          name: updateCategoryDto.name,
-          parentId: parentId || null,
-          householdId: authContext.householdId,
-          id: { not: id },
-          deletedAt: null,
-        },
-      });
+      const existingNameCategory =
+        await this.prismaService.prisma.category.findFirst({
+          where: {
+            name: updateCategoryDto.name,
+            parentId: parentId || null,
+            householdId: authContext.householdId,
+            id: { not: id },
+            deletedAt: null,
+          },
+        });
 
       if (existingNameCategory) {
-        throw new BadRequestException('Category with this name already exists at this level');
+        throw new BadRequestException(
+          'Category with this name already exists at this level',
+        );
       }
     }
 
@@ -216,8 +253,12 @@ export class CategoriesService {
         where: { id },
         data: {
           ...(updateCategoryDto.name && { name: updateCategoryDto.name }),
-          ...(updateCategoryDto.parentId !== undefined && { parentId: updateCategoryDto.parentId }),
-          ...(updateCategoryDto.description !== undefined && { description: updateCategoryDto.description }),
+          ...(updateCategoryDto.parentId !== undefined && {
+            parentId: updateCategoryDto.parentId,
+          }),
+          ...(updateCategoryDto.description !== undefined && {
+            description: updateCategoryDto.description,
+          }),
         },
         include: {
           parent: true,
@@ -228,7 +269,7 @@ export class CategoriesService {
   }
 
   async remove(id: string, authContext: AuthContext): Promise<void> {
-    const existingCategory = await this.findOne(id, authContext);
+    await this.findOne(id, authContext); // Ensure category exists
 
     // Check if category has children
     const childrenCount = await this.prismaService.prisma.category.count({
@@ -239,7 +280,9 @@ export class CategoriesService {
     });
 
     if (childrenCount > 0) {
-      throw new BadRequestException('Cannot delete category with child categories');
+      throw new BadRequestException(
+        'Cannot delete category with child categories',
+      );
     }
 
     // Check if category has transactions
@@ -248,7 +291,9 @@ export class CategoriesService {
     });
 
     if (transactionCount > 0) {
-      throw new BadRequestException('Cannot delete category with existing transactions');
+      throw new BadRequestException(
+        'Cannot delete category with existing transactions',
+      );
     }
 
     await this.prismaService.withContext(authContext, async (prisma) => {
@@ -259,24 +304,35 @@ export class CategoriesService {
     });
   }
 
-  async getCategoryTree(authContext: AuthContext): Promise<CategoryWithChildren[]> {
+  async getCategoryTree(
+    authContext: AuthContext,
+  ): Promise<CategoryWithChildren[]> {
     return this.findAll(authContext);
   }
 
-  async getCategoryPath(id: string, authContext: AuthContext): Promise<Category[]> {
+  async getCategoryPath(
+    id: string,
+    authContext: AuthContext,
+  ): Promise<Category[]> {
     const category = await this.findOne(id, authContext);
     const path: Category[] = [category];
 
     let currentCategory = category;
     while (currentCategory.parent) {
       path.unshift(currentCategory.parent);
-      currentCategory = await this.findOne(currentCategory.parent.id, authContext);
+      currentCategory = await this.findOne(
+        currentCategory.parent.id,
+        authContext,
+      );
     }
 
     return path;
   }
 
-  private async getCategoryDepth(categoryId: string, authContext: AuthContext): Promise<number> {
+  private async getCategoryDepth(
+    categoryId: string,
+    authContext: AuthContext,
+  ): Promise<number> {
     let depth = 0;
     let currentCategoryId: string | null = categoryId;
 
@@ -296,7 +352,9 @@ export class CategoriesService {
 
       // Safety check to prevent infinite loops
       if (depth > 10) {
-        throw new BadRequestException('Category hierarchy is too deep or contains a circular reference');
+        throw new BadRequestException(
+          'Category hierarchy is too deep or contains a circular reference',
+        );
       }
     }
 
@@ -310,10 +368,13 @@ export class CategoriesService {
   ): Promise<boolean> {
     // Check if newParentId is a descendant of categoryId
     const descendants = await this.getAllDescendants(categoryId, authContext);
-    return descendants.some(descendant => descendant.id === newParentId);
+    return descendants.some((descendant) => descendant.id === newParentId);
   }
 
-  private async getAllDescendants(categoryId: string, authContext: AuthContext): Promise<Category[]> {
+  private async getAllDescendants(
+    categoryId: string,
+    authContext: AuthContext,
+  ): Promise<Category[]> {
     const descendants: Category[] = [];
     const visited = new Set<string>();
 
@@ -373,7 +434,7 @@ export class CategoriesService {
           _count: true,
         });
 
-        descendantTransactionCount += descendantStats._count;
+        descendantTransactionCount += descendantStats._count || 0;
         descendantTotalAmount += descendantStats._sum.amount || 0;
       }
 
@@ -384,11 +445,12 @@ export class CategoriesService {
           parent: category.parent,
         },
         statistics: {
-          directTransactions: transactionCount,
+          directTransactions: transactionCount || 0,
           directAmount: totalAmount._sum.amount || 0,
           descendantTransactions: descendantTransactionCount,
           descendantAmount: descendantTotalAmount,
-          totalTransactions: transactionCount + descendantTransactionCount,
+          totalTransactions:
+            (transactionCount || 0) + descendantTransactionCount,
           totalAmount: (totalAmount._sum.amount || 0) + descendantTotalAmount,
           childrenCount: descendants.length,
         },

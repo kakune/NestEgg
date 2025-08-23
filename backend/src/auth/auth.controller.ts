@@ -11,7 +11,6 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService, AuthResponse } from './auth.service';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -48,7 +47,17 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getProfile(@Request() req: any) {
+  getProfile(
+    @Request()
+    req: {
+      user: {
+        userId: string;
+        email: string;
+        householdId: string;
+        role: string;
+      };
+    },
+  ) {
     return {
       user: {
         id: req.user.userId,
