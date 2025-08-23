@@ -134,7 +134,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       `;
 
       // Pass the transaction client directly
-      return fn(tx as PrismaClient);
+      return fn(tx);
     });
   }
 
