@@ -28,3 +28,4 @@ build
 .DS_Store
 
 /generated/prisma
+CLAUDE.md
