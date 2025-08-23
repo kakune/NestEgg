@@ -8,6 +8,8 @@
   ],
   "scripts": {
     "test": "npm run test -w backend && npm run test -w frontend",
+    "lint": "npm run lint -w backend && npm run lint -w frontend",
+    "lint:fix": "npm run lint:fix -w backend && npm run lint:fix -w frontend",
     "prepare": "husky install || true",
     "e2e:install": "playwright install",
     "e2e:open": "playwright test --ui",
@@ -16,12 +18,13 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md,css,scss}": [
-      "prettier --write",
-      "git add"
+      "prettier --write"
     ],
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "git add"
+    "backend/**/*.{ts,tsx}": [
+      "cd backend && npm run lint:fix"
+    ],
+    "frontend/**/*.{ts,tsx}": [
+      "cd frontend && npm run lint:fix"
     ]
   },
   "keywords": [],

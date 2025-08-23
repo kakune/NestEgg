@@ -9,6 +9,7 @@ describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Mock successful API responses
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (fetch as any)
       .mockResolvedValueOnce({
         ok: true,

@@ -8,7 +8,7 @@ export class HealthController {
       status: 'ok',
       info: { database: { status: 'up' } },
       error: {},
-      details: { database: { status: 'up' } }
+      details: { database: { status: 'up' } },
     };
   }
 }

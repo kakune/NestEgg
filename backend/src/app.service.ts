@@ -11,7 +11,7 @@ export class AppService {
     return [
       { id: 1, name: 'Admin User' },
       { id: 2, name: 'Family Member 1' },
-      { id: 3, name: 'Family Member 2' }
+      { id: 3, name: 'Family Member 2' },
     ];
   }
 }

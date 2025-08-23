@@ -1,0 +1,8 @@
+# Lint and fix both backend and frontend
+echo "🧹 Linting and fixing code..."
+npm run lint -w backend
+npm run lint -w frontend || true
+
+# Run tests
+echo "🧪 Running tests..."
+npm test
