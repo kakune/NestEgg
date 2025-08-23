@@ -9,12 +9,14 @@ async function bootstrap() {
   app.enableCors();
 
   // Use class-validator for input validation globally
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true, // Strip away properties that do not have any decorators
-    forbidNonWhitelisted: true, // Throw an error if non-whitelisted values are provided
-    transform: true, // Automatically transform payloads to be objects typed according to their DTO classes
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Strip away properties that do not have any decorators
+      forbidNonWhitelisted: true, // Throw an error if non-whitelisted values are provided
+      transform: true, // Automatically transform payloads to be objects typed according to their DTO classes
+    }),
+  );
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

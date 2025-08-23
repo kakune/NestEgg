@@ -1,15 +1,31 @@
 {
-    "name": "nestegg",
-    "version": "1.0.0",
-    "private": true,
-    "workspaces": [
-        "backend",
-        "frontend"
+  "name": "nestegg",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "test": "npm run test -w backend && npm run test -w frontend",
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md,css,scss}": [
+      "prettier --write",
+      "git add"
     ],
-    "scripts": {
-        "test": "npm run test -w backend && npm run test -w frontend"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC"
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "git add"
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.6.2"
+  }
 }
