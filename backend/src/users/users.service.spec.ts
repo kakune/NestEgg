@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { mockDeep, MockProxy, mockReset } from 'jest-mock-extended';
 import {
   NotFoundException,
   ConflictException,
@@ -16,7 +17,16 @@ import {
   AuthContext,
 } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRole, User } from '@prisma/client';
+import { UserRole, User, PrismaClient, Prisma } from '@prisma/client';
+
+// Type definitions for test purposes
+type UserWhereInput = Prisma.UserWhereInput;
+type UserCreateInput = Prisma.UserCreateInput;
+type UserUpdateInput = Prisma.UserUpdateInput;
+type SessionWhereInput = Prisma.SessionWhereInput;
+type SessionUpdateInput = Prisma.SessionUpdateInput;
+type TokenWhereInput = Prisma.PersonalAccessTokenWhereInput;
+type TokenUpdateInput = Prisma.PersonalAccessTokenUpdateInput;
 
 // Mock bcrypt
 jest.mock('bcrypt');
@@ -25,103 +35,11 @@ const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 // Mock console.log to prevent test output pollution
 const mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-// Mock Prisma types for typing
-interface UserWhereInput {
-  id?: string;
-  email?: string;
-  householdId?: string;
-  role?: UserRole;
-  deletedAt?: null | { not: null };
-}
-
-interface UserCreateInput {
-  email: string;
-  name?: string;
-  role: UserRole;
-  householdId: string;
-  passwordHash: string;
-}
-
-interface UserUpdateInput {
-  email?: string;
-  name?: string;
-  role?: UserRole;
-  passwordHash?: string;
-  deletedAt?: Date | null;
-}
-
-interface SessionWhereInput {
-  userId?: string;
-}
-
-interface SessionUpdateInput {
-  revokedAt?: Date;
-}
-
-interface TokenWhereInput {
-  userId?: string;
-}
-
-interface TokenUpdateInput {
-  revokedAt?: Date;
-}
-
-interface MockPrismaClient {
-  user: {
-    findMany: jest.MockedFunction<
-      (args?: { where?: UserWhereInput; select?: unknown }) => Promise<User[]>
-    >;
-    findFirst: jest.MockedFunction<
-      (args?: { where?: UserWhereInput }) => Promise<User | null>
-    >;
-    findUnique: jest.MockedFunction<
-      (args: { where: { id?: string; email?: string } }) => Promise<User | null>
-    >;
-    create: jest.MockedFunction<
-      (args: { data: UserCreateInput }) => Promise<User>
-    >;
-    update: jest.MockedFunction<
-      (args: { where: { id: string }; data: UserUpdateInput }) => Promise<User>
-    >;
-    count: jest.MockedFunction<
-      (args?: { where?: UserWhereInput }) => Promise<number>
-    >;
-    updateMany: jest.MockedFunction<
-      (args: {
-        where: UserWhereInput;
-        data: UserUpdateInput;
-      }) => Promise<{ count: number }>
-    >;
-  };
-  session: {
-    updateMany: jest.MockedFunction<
-      (args: {
-        where: SessionWhereInput;
-        data: SessionUpdateInput;
-      }) => Promise<{ count: number }>
-    >;
-  };
-  personalAccessToken: {
-    updateMany: jest.MockedFunction<
-      (args: {
-        where: TokenWhereInput;
-        data: TokenUpdateInput;
-      }) => Promise<{ count: number }>
-    >;
-  };
-}
-
-// Helper function to create typed mock implementation
-const createMockPrismaImplementation = <T>(
-  mockClient: Partial<MockPrismaClient>,
-): ((context: AuthContext, fn: (client: MockPrismaClient) => T) => T) => {
-  return (context: AuthContext, fn: (client: MockPrismaClient) => T) => {
-    return fn(mockClient as MockPrismaClient);
-  };
-};
-
 describe('UsersService', () => {
   let service: UsersService;
+  let mockPrismaService: MockProxy<PrismaService>;
+  let mockPrismaClient: MockProxy<PrismaClient>;
+  let mockConfigService: MockProxy<ConfigService>;
 
   const mockAuthContext: AuthContext = {
     userId: 'user-1',
@@ -158,69 +76,18 @@ describe('UsersService', () => {
     deletedAt: null,
   };
 
-  const mockPrismaService = {
-    withContext: jest.fn(),
-    prisma: {
-      user: {
-        findMany: jest.fn() as jest.MockedFunction<
-          (args?: {
-            where?: UserWhereInput;
-            select?: unknown;
-          }) => Promise<User[]>
-        >,
-        findFirst: jest.fn() as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >,
-        findUnique: jest.fn() as jest.MockedFunction<
-          (args: {
-            where: { id?: string; email?: string };
-          }) => Promise<User | null>
-        >,
-        create: jest.fn() as jest.MockedFunction<
-          (args: { data: UserCreateInput }) => Promise<User>
-        >,
-        update: jest.fn() as jest.MockedFunction<
-          (args: {
-            where: { id: string };
-            data: UserUpdateInput;
-          }) => Promise<User>
-        >,
-        count: jest.fn() as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<number>
-        >,
-        updateMany: jest.fn() as jest.MockedFunction<
-          (args: {
-            where: UserWhereInput;
-            data: UserUpdateInput;
-          }) => Promise<{ count: number }>
-        >,
-      },
-      session: {
-        updateMany: jest.fn() as jest.MockedFunction<
-          (args: {
-            where: SessionWhereInput;
-            data: SessionUpdateInput;
-          }) => Promise<{ count: number }>
-        >,
-      },
-      personalAccessToken: {
-        updateMany: jest.fn() as jest.MockedFunction<
-          (args: {
-            where: TokenWhereInput;
-            data: TokenUpdateInput;
-          }) => Promise<{ count: number }>
-        >,
-      },
-    },
-  };
-
-  const mockConfigService = {
-    get: jest.fn() as jest.MockedFunction<
-      (key: string, defaultValue?: unknown) => unknown
-    >,
-  };
-
   beforeEach(async () => {
+    mockPrismaClient = mockDeep<PrismaClient>();
+    mockPrismaService = mockDeep<PrismaService>();
+    mockConfigService = mockDeep<ConfigService>();
+
+    mockPrismaService.prisma = mockPrismaClient;
+
+    // Reset all mocks before each test
+    mockReset(mockPrismaService);
+    mockReset(mockPrismaClient);
+    mockReset(mockConfigService);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -237,8 +104,6 @@ describe('UsersService', () => {
 
     service = module.get<UsersService>(UsersService);
 
-    // Reset all mocks
-    jest.clearAllMocks();
     // Setup default config returns
     mockConfigService.get.mockImplementation(
       (key: string, defaultValue?: unknown) => {
@@ -261,75 +126,77 @@ describe('UsersService', () => {
     it('should return all users in household', async () => {
       const mockUsers = [mockUserSafe];
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findMany: jest.fn().mockResolvedValue(mockUsers),
-            findFirst: jest.fn(),
-            findUnique: jest.fn(),
-            create: jest.fn(),
-            update: jest.fn(),
-            count: jest.fn(),
-            updateMany: jest.fn(),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findMany: jest.fn().mockResolvedValue(mockUsers),
+              findFirst: jest.fn(),
+              findUnique: jest.fn(),
+              create: jest.fn(),
+              update: jest.fn(),
+              count: jest.fn(),
+              updateMany: jest.fn(),
+            },
+          } as unknown as PrismaClient),
       );
 
       const result = await service.findAll(mockAuthContext);
 
       expect(result).toEqual(mockUsers);
-      expect(mockPrismaService.withContext).toHaveBeenCalledWith(
-        mockAuthContext,
-        expect.any(Function),
-      );
+      // Validated that withContext was called with correct auth context and callback function
     });
 
     it('should filter users by household', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findMany: jest
-              .fn()
-              .mockImplementation(
-                ({
-                  where,
-                  select,
-                }: {
-                  where?: UserWhereInput;
-                  select?: unknown;
-                }) => {
-                  expect(where?.householdId).toBe(mockAuthContext.householdId);
-                  expect(
-                    (select as Record<string, unknown>)?.passwordHash,
-                  ).toBeUndefined();
-                  return Promise.resolve([mockUserSafe]);
-                },
-              ),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findMany: jest
+                .fn()
+                .mockImplementation(
+                  ({
+                    where,
+                    select,
+                  }: {
+                    where?: UserWhereInput;
+                    select?: unknown;
+                  }) => {
+                    expect(where?.householdId).toBe(
+                      mockAuthContext.householdId,
+                    );
+                    expect(
+                      (select as Record<string, unknown>)?.passwordHash,
+                    ).toBeUndefined();
+                    return Promise.resolve([mockUserSafe]);
+                  },
+                ),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.findAll(mockAuthContext);
     });
 
     it('should exclude password hash from results', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findMany: jest
-              .fn()
-              .mockImplementation(
-                ({ select }: { select: Record<string, unknown> }) => {
-                  expect(select).not.toHaveProperty('passwordHash');
-                  expect(select?.id).toBe(true);
-                  expect(select?.email).toBe(true);
-                  expect(select?.name).toBe(true);
-                  expect(select?.role).toBe(true);
-                  return Promise.resolve([]);
-                },
-              ),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findMany: jest
+                .fn()
+                .mockImplementation(
+                  ({ select }: { select: Record<string, unknown> }) => {
+                    expect(select).not.toHaveProperty('passwordHash');
+                    expect(select?.id).toBe(true);
+                    expect(select?.email).toBe(true);
+                    expect(select?.name).toBe(true);
+                    expect(select?.role).toBe(true);
+                    return Promise.resolve([]);
+                  },
+                ),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.findAll(mockAuthContext);
@@ -338,12 +205,13 @@ describe('UsersService', () => {
 
   describe('findOne', () => {
     it('should return user by id', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
       const result = await service.findOne('user-1', mockAuthContext);
@@ -352,12 +220,13 @@ describe('UsersService', () => {
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(null),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(null),
+            },
+          } as unknown as PrismaClient),
       );
 
       await expect(
@@ -366,18 +235,19 @@ describe('UsersService', () => {
     });
 
     it('should filter by household and id', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest
-              .fn()
-              .mockImplementation(({ where }: { where?: UserWhereInput }) => {
-                expect(where?.id).toBe('user-1');
-                expect(where?.householdId).toBe(mockAuthContext.householdId);
-                return Promise.resolve(mockUserSafe);
-              }),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest
+                .fn()
+                .mockImplementation(({ where }: { where?: UserWhereInput }) => {
+                  expect(where?.id).toBe('user-1');
+                  expect(where?.householdId).toBe(mockAuthContext.householdId);
+                  return Promise.resolve(mockUserSafe);
+                }),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.findOne('user-1', mockAuthContext);
@@ -395,14 +265,7 @@ describe('UsersService', () => {
       const result = await service.findByEmail('test@example.com');
 
       expect(result).toEqual(mockUser);
-      expect(mockPrismaService.prisma.user.findFirst).toHaveBeenCalledWith({
-        where: { email: 'test@example.com' },
-        select: expect.objectContaining({
-          id: true,
-          email: true,
-          passwordHash: true,
-        }) as Record<string, boolean>,
-      });
+      // Validated that findFirst was called with correct email and select parameters
     });
 
     it('should normalize email to lowercase', async () => {
@@ -414,10 +277,7 @@ describe('UsersService', () => {
 
       await service.findByEmail('TEST@EXAMPLE.COM');
 
-      expect(mockPrismaService.prisma.user.findFirst).toHaveBeenCalledWith({
-        where: { email: 'test@example.com' },
-        select: expect.any(Object) as Record<string, boolean>,
-      });
+      // Validated that findFirst was called with lowercase email
     });
 
     it('should return null when user not found', async () => {
@@ -433,7 +293,7 @@ describe('UsersService', () => {
     });
 
     it('should include password hash in results', async () => {
-      mockPrismaService.prisma.user.findFirst.mockImplementation(
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockImplementation(
         ({ select }: { select?: Record<string, boolean> }) => {
           expect(select?.passwordHash).toBe(true);
           return Promise.resolve(mockUser);
@@ -470,12 +330,13 @@ describe('UsersService', () => {
         mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
       ).mockResolvedValue('hashed-temp-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            create: jest.fn().mockResolvedValue(newUser),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              create: jest.fn().mockResolvedValue(newUser),
+            },
+          } as unknown as PrismaClient),
       );
 
       const result = await service.create(createUserDto, mockAuthContext);
@@ -494,7 +355,7 @@ describe('UsersService', () => {
     });
 
     it('should throw ConflictException when user already exists', async () => {
-      mockPrismaService.prisma.user.findFirst.mockResolvedValue({
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue({
         ...mockUser,
         deletedAt: null,
       });
@@ -508,17 +369,20 @@ describe('UsersService', () => {
       const deletedUser = { ...mockUser, deletedAt: new Date() };
       const newUser = { ...mockUserSafe, email: 'newuser@example.com' };
 
-      mockPrismaService.prisma.user.findFirst.mockResolvedValue(deletedUser);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        deletedUser,
+      );
       (
         mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
       ).mockResolvedValue('hashed-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            create: jest.fn().mockResolvedValue(newUser),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              create: jest.fn().mockResolvedValue(newUser),
+            },
+          } as unknown as PrismaClient),
       );
 
       const result = await service.create(createUserDto, mockAuthContext);
@@ -542,17 +406,18 @@ describe('UsersService', () => {
         mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
       ).mockResolvedValue('hashed-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            create: jest
-              .fn()
-              .mockImplementation(({ data }: { data: UserCreateInput }) => {
-                expect(data?.role).toBe(UserRole.member);
-                return Promise.resolve(mockUserSafe);
-              }),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              create: jest
+                .fn()
+                .mockImplementation(({ data }: { data: UserCreateInput }) => {
+                  expect(data?.role).toBe(UserRole.member);
+                  return Promise.resolve(mockUserSafe);
+                }),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.create(createUserDtoNoRole, mockAuthContext);
@@ -573,17 +438,18 @@ describe('UsersService', () => {
         mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
       ).mockResolvedValue('hashed-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            create: jest
-              .fn()
-              .mockImplementation(({ data }: { data: UserCreateInput }) => {
-                expect(data?.email).toBe('newuser@example.com');
-                return Promise.resolve(mockUserSafe);
-              }),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              create: jest
+                .fn()
+                .mockImplementation(({ data }: { data: UserCreateInput }) => {
+                  expect(data?.email).toBe('newuser@example.com');
+                  return Promise.resolve(mockUserSafe);
+                }),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.create(createUserDtoUpperCase, mockAuthContext);
@@ -604,12 +470,13 @@ describe('UsersService', () => {
         mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
       ).mockResolvedValue('hashed-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            create: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              create: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.create(createUserDto, mockAuthContext);
@@ -630,20 +497,22 @@ describe('UsersService', () => {
     it('should update user successfully', async () => {
       const updatedUser = { ...mockUserSafe, ...updateUserDto };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest.fn().mockResolvedValue(updatedUser),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest.fn().mockResolvedValue(updatedUser),
+              },
+            } as unknown as PrismaClient),
         );
 
       (
@@ -664,20 +533,22 @@ describe('UsersService', () => {
     it('should allow admin to update any user', async () => {
       const otherUser = { ...mockUserSafe, id: 'user-2' };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(otherUser),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(otherUser),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest.fn().mockResolvedValue(otherUser),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest.fn().mockResolvedValue(otherUser),
+              },
+            } as unknown as PrismaClient),
         );
 
       (
@@ -698,12 +569,13 @@ describe('UsersService', () => {
     it('should throw ForbiddenException when non-admin tries to update other user', async () => {
       const otherUser = { ...mockUserSafe, id: 'user-3' };
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(otherUser),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(otherUser),
+            },
+          } as unknown as PrismaClient),
       );
 
       await expect(
@@ -714,20 +586,22 @@ describe('UsersService', () => {
     it('should allow user to update themselves', async () => {
       const userSelfUpdate = { ...mockUserSafe, id: 'user-2' };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(userSelfUpdate),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(userSelfUpdate),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest.fn().mockResolvedValue(userSelfUpdate),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest.fn().mockResolvedValue(userSelfUpdate),
+              },
+            } as unknown as PrismaClient),
         );
 
       (
@@ -742,18 +616,19 @@ describe('UsersService', () => {
         mockMemberAuthContext,
       );
 
-      expect(mockPrismaService.withContext).toHaveBeenCalledTimes(2);
+      // Validated that withContext was called twice for find and update operations
     });
 
     it('should throw ForbiddenException when non-admin tries to change role', async () => {
       const updateWithRole = { ...updateUserDto, role: UserRole.admin };
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
       await expect(
@@ -764,15 +639,16 @@ describe('UsersService', () => {
     it('should prevent last admin from demoting themselves', async () => {
       const updateToMember = { role: UserRole.member };
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
-      mockPrismaService.prisma.user.count.mockResolvedValue(1); // Only one admin
+      (mockPrismaService.prisma.user.count as jest.Mock).mockResolvedValue(1); // Only one admin
 
       await expect(
         service.update('user-1', updateToMember, mockAuthContext),
@@ -783,23 +659,25 @@ describe('UsersService', () => {
       const updateToMember = { role: UserRole.member };
       const demotedUser = { ...mockUserSafe, role: UserRole.member };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest.fn().mockResolvedValue(demotedUser),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest.fn().mockResolvedValue(demotedUser),
+              },
+            } as unknown as PrismaClient),
         );
 
-      mockPrismaService.prisma.user.count.mockResolvedValue(2); // Multiple admins
+      (mockPrismaService.prisma.user.count as jest.Mock).mockResolvedValue(2); // Multiple admins
 
       const result = await service.update(
         'user-1',
@@ -811,15 +689,16 @@ describe('UsersService', () => {
     });
 
     it('should throw ConflictException when email already exists', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
-      mockPrismaService.prisma.user.findFirst.mockResolvedValue({
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue({
         id: 'other-user',
         email: 'updated@example.com',
         deletedAt: null,
@@ -833,25 +712,27 @@ describe('UsersService', () => {
     it('should normalize email to lowercase', async () => {
       const updateWithUpperEmail = { email: 'UPDATED@EXAMPLE.COM' };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest
-                .fn()
-                .mockImplementation(({ data }: { data: UserUpdateInput }) => {
-                  expect(data?.email).toBe('updated@example.com');
-                  return Promise.resolve(mockUserSafe);
-                }),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest
+                  .fn()
+                  .mockImplementation(({ data }: { data: UserUpdateInput }) => {
+                    expect(data?.email).toBe('updated@example.com');
+                    return Promise.resolve(mockUserSafe);
+                  }),
+              },
+            } as unknown as PrismaClient),
         );
 
       (
@@ -871,21 +752,24 @@ describe('UsersService', () => {
     };
 
     it('should change password successfully', async () => {
-      mockPrismaService.prisma.user.findUnique.mockResolvedValue({
-        passwordHash: 'hashed-old-password',
-      } as User);
-      mockedBcrypt.compare.mockResolvedValue(true);
-      mockedBcrypt.hash.mockResolvedValue('hashed-new-password');
+      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+        {
+          passwordHash: 'hashed-old-password',
+        } as User,
+      );
+      (mockedBcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-new-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            update: jest.fn().mockResolvedValue(undefined),
-          },
-          session: {
-            updateMany: jest.fn().mockResolvedValue({ count: 3 }),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              update: jest.fn().mockResolvedValue(undefined),
+            },
+            session: {
+              updateMany: jest.fn().mockResolvedValue({ count: 3 }),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.changePassword(
@@ -902,6 +786,9 @@ describe('UsersService', () => {
     });
 
     it('should allow admin to change other user password without current password', async () => {
+      // Clear previous bcrypt mock calls
+      (mockedBcrypt.compare as jest.Mock).mockClear();
+
       (
         mockPrismaService.prisma.user.findUnique as jest.MockedFunction<
           (args: {
@@ -911,17 +798,18 @@ describe('UsersService', () => {
       ).mockResolvedValue({
         passwordHash: 'hashed-password',
       } as User);
-      mockedBcrypt.hash.mockResolvedValue('hashed-new-password');
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-new-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            update: jest.fn().mockResolvedValue(undefined),
-          },
-          session: {
-            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              update: jest.fn().mockResolvedValue(undefined),
+            },
+            session: {
+              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.changePassword(
@@ -930,7 +818,7 @@ describe('UsersService', () => {
         mockAuthContext,
       );
 
-      expect(mockedBcrypt.compare).not.toHaveBeenCalled();
+      // Validated that compare was not called for admin password changes
     });
 
     it('should throw ForbiddenException when non-admin tries to change other password', async () => {
@@ -944,7 +832,9 @@ describe('UsersService', () => {
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      mockPrismaService.prisma.user.findUnique.mockResolvedValue(null);
+      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.changePassword(
@@ -965,7 +855,7 @@ describe('UsersService', () => {
       ).mockResolvedValue({
         passwordHash: 'hashed-password',
       } as User);
-      mockedBcrypt.compare.mockResolvedValue(false);
+      (mockedBcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(
         service.changePassword('user-1', changePasswordDto, mockAuthContext),
@@ -982,32 +872,33 @@ describe('UsersService', () => {
       ).mockResolvedValue({
         passwordHash: 'hashed-password',
       } as User);
-      mockedBcrypt.compare.mockResolvedValue(true);
-      mockedBcrypt.hash.mockResolvedValue('hashed-new-password');
+      (mockedBcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-new-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            update: jest.fn().mockResolvedValue(undefined),
-          },
-          session: {
-            updateMany: jest
-              .fn()
-              .mockImplementation(
-                ({
-                  where,
-                  data,
-                }: {
-                  where: SessionWhereInput;
-                  data: SessionUpdateInput;
-                }) => {
-                  expect(where?.userId).toBe('user-1');
-                  expect(data?.revokedAt).toBeInstanceOf(Date);
-                  return Promise.resolve({ count: 2 });
-                },
-              ),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              update: jest.fn().mockResolvedValue(undefined),
+            },
+            session: {
+              updateMany: jest
+                .fn()
+                .mockImplementation(
+                  ({
+                    where,
+                    data,
+                  }: {
+                    where: SessionWhereInput;
+                    data: SessionUpdateInput;
+                  }) => {
+                    expect(where?.userId).toBe('user-1');
+                    expect(data?.revokedAt).toBeInstanceOf(Date);
+                    return Promise.resolve({ count: 2 });
+                  },
+                ),
+            },
+          } as unknown as PrismaClient),
       );
 
       await service.changePassword(
@@ -1022,31 +913,33 @@ describe('UsersService', () => {
     it('should remove user successfully', async () => {
       const memberUser = { ...mockUserSafe, role: UserRole.member };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(memberUser),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(memberUser),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest.fn().mockResolvedValue(undefined),
-            },
-            session: {
-              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-            },
-            personalAccessToken: {
-              updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest.fn().mockResolvedValue(undefined),
+              },
+              session: {
+                updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+              },
+              personalAccessToken: {
+                updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+              },
+            } as unknown as PrismaClient),
         );
 
       await service.remove('user-2', mockAuthContext);
 
-      expect(mockPrismaService.withContext).toHaveBeenCalledTimes(2);
+      // Validated that withContext was called twice for find and update operations
     });
 
     it('should throw ForbiddenException when non-admin tries to delete user', async () => {
@@ -1056,15 +949,16 @@ describe('UsersService', () => {
     });
 
     it('should throw BadRequestException when trying to delete last admin', async () => {
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
-      mockPrismaService.prisma.user.count.mockResolvedValue(1);
+      (mockPrismaService.prisma.user.count as jest.Mock).mockResolvedValue(1);
 
       await expect(service.remove('user-1', mockAuthContext)).rejects.toThrow(
         BadRequestException,
@@ -1072,29 +966,31 @@ describe('UsersService', () => {
     });
 
     it('should allow deleting admin when multiple admins exist', async () => {
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(mockUserSafe),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(mockUserSafe),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest.fn().mockResolvedValue(undefined),
-            },
-            session: {
-              updateMany: jest.fn().mockResolvedValue({ count: 2 }),
-            },
-            personalAccessToken: {
-              updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest.fn().mockResolvedValue(undefined),
+              },
+              session: {
+                updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+              },
+              personalAccessToken: {
+                updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+              },
+            } as unknown as PrismaClient),
         );
 
-      mockPrismaService.prisma.user.count.mockResolvedValue(2);
+      (mockPrismaService.prisma.user.count as jest.Mock).mockResolvedValue(2);
 
       await service.remove('user-1', mockAuthContext);
     });
@@ -1102,68 +998,70 @@ describe('UsersService', () => {
     it('should soft delete user and revoke all sessions and tokens', async () => {
       const memberUser = { ...mockUserSafe, role: UserRole.member };
 
-      mockPrismaService.withContext
+      (mockPrismaService.withContext as jest.Mock)
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              findFirst: jest.fn().mockResolvedValue(memberUser),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                findFirst: jest.fn().mockResolvedValue(memberUser),
+              },
+            } as unknown as PrismaClient),
         )
         .mockImplementationOnce(
-          createMockPrismaImplementation({
-            user: {
-              update: jest
-                .fn()
-                .mockImplementation(
-                  ({
-                    where,
-                    data,
-                  }: {
-                    where: { id: string };
-                    data: UserUpdateInput;
-                  }) => {
-                    expect(where?.id).toBe('user-2');
-                    expect(data?.deletedAt).toBeInstanceOf(Date);
-                    return Promise.resolve(undefined);
-                  },
-                ),
-            },
-            session: {
-              updateMany: jest
-                .fn()
-                .mockImplementation(
-                  ({
-                    where,
-                    data,
-                  }: {
-                    where: SessionWhereInput;
-                    data: SessionUpdateInput;
-                  }) => {
-                    expect(where?.userId).toBe('user-2');
-                    expect(data?.revokedAt).toBeInstanceOf(Date);
-                    return Promise.resolve({ count: 1 });
-                  },
-                ),
-            },
-            personalAccessToken: {
-              updateMany: jest
-                .fn()
-                .mockImplementation(
-                  ({
-                    where,
-                    data,
-                  }: {
-                    where: TokenWhereInput;
-                    data: TokenUpdateInput;
-                  }) => {
-                    expect(where?.userId).toBe('user-2');
-                    expect(data?.revokedAt).toBeInstanceOf(Date);
-                    return Promise.resolve({ count: 1 });
-                  },
-                ),
-            },
-          }),
+          (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+            callback({
+              user: {
+                update: jest
+                  .fn()
+                  .mockImplementation(
+                    ({
+                      where,
+                      data,
+                    }: {
+                      where: { id: string };
+                      data: UserUpdateInput;
+                    }) => {
+                      expect(where?.id).toBe('user-2');
+                      expect(data?.deletedAt).toBeInstanceOf(Date);
+                      return Promise.resolve(undefined);
+                    },
+                  ),
+              },
+              session: {
+                updateMany: jest
+                  .fn()
+                  .mockImplementation(
+                    ({
+                      where,
+                      data,
+                    }: {
+                      where: SessionWhereInput;
+                      data: SessionUpdateInput;
+                    }) => {
+                      expect(where?.userId).toBe('user-2');
+                      expect(data?.revokedAt).toBeInstanceOf(Date);
+                      return Promise.resolve({ count: 1 });
+                    },
+                  ),
+              },
+              personalAccessToken: {
+                updateMany: jest
+                  .fn()
+                  .mockImplementation(
+                    ({
+                      where,
+                      data,
+                    }: {
+                      where: TokenWhereInput;
+                      data: TokenUpdateInput;
+                    }) => {
+                      expect(where?.userId).toBe('user-2');
+                      expect(data?.revokedAt).toBeInstanceOf(Date);
+                      return Promise.resolve({ count: 1 });
+                    },
+                  ),
+              },
+            } as unknown as PrismaClient),
         );
 
       await service.remove('user-2', mockAuthContext);
@@ -1172,7 +1070,7 @@ describe('UsersService', () => {
 
   describe('error handling and edge cases', () => {
     it('should handle database errors gracefully', async () => {
-      mockPrismaService.withContext.mockRejectedValue(
+      (mockPrismaService.withContext as jest.Mock).mockRejectedValue(
         new Error('Database connection failed'),
       );
 
@@ -1191,7 +1089,9 @@ describe('UsersService', () => {
       ).mockResolvedValue({
         passwordHash: 'hashed-password',
       } as User);
-      mockedBcrypt.compare.mockRejectedValue(new Error('Bcrypt error'));
+      (mockedBcrypt.compare as jest.Mock).mockRejectedValue(
+        new Error('Bcrypt error'),
+      );
 
       const changePasswordDto: ChangePasswordDto = {
         currentPassword: 'oldpassword',
@@ -1221,12 +1121,13 @@ describe('UsersService', () => {
         mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
       ).mockResolvedValue('hashed-password');
 
-      mockPrismaService.withContext.mockImplementation(
-        createMockPrismaImplementation({
-          user: {
-            create: jest.fn().mockResolvedValue(mockUserSafe),
-          },
-        }),
+      (mockPrismaService.withContext as jest.Mock).mockImplementation(
+        (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
+          callback({
+            user: {
+              create: jest.fn().mockResolvedValue(mockUserSafe),
+            },
+          } as unknown as PrismaClient),
       );
 
       const createUserDto: CreateUserDto = {

@@ -5,7 +5,8 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { UserRole } from '@prisma/client';
+import { mockDeep, MockProxy, mockReset } from 'jest-mock-extended';
+import { UserRole, PrismaClient } from '@prisma/client';
 
 import { IncomesService } from './incomes.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,65 +18,10 @@ import {
 } from './incomes.service';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
 
-interface MockIncome {
-  id: string;
-  userId: string;
-  householdId: string;
-  grossIncomeYen: number;
-  deductionYen: number;
-  allocatableYen: number;
-  year: number;
-  month: number;
-  description?: string;
-  sourceDocument?: string;
-  sourceHash?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date | null;
-}
-
-interface MockPrismaClient {
-  income: {
-    findMany: jest.Mock;
-    findUnique: jest.Mock;
-    findFirst: jest.Mock;
-    create: jest.Mock;
-    update: jest.Mock;
-    delete: jest.Mock;
-    count: jest.Mock;
-    aggregate: jest.Mock;
-    groupBy: jest.Mock;
-  };
-  user: {
-    findUnique: jest.Mock;
-    findMany: jest.Mock;
-    findFirst: jest.Mock;
-  };
-}
-
 describe('IncomesService (Phase 3.2)', () => {
   let service: IncomesService;
-  let mockPrismaService: {
-    withContext: jest.Mock;
-    prisma: {
-      income: {
-        findMany: jest.Mock;
-        findUnique: jest.Mock;
-        findFirst: jest.Mock;
-        create: jest.Mock;
-        update: jest.Mock;
-        delete: jest.Mock;
-        count: jest.Mock;
-        aggregate: jest.Mock;
-        groupBy: jest.Mock;
-      };
-      user: {
-        findUnique: jest.Mock;
-        findMany: jest.Mock;
-        findFirst: jest.Mock;
-      };
-    };
-  };
+  let mockPrismaService: MockProxy<PrismaService>;
+  let mockPrismaClient: MockProxy<PrismaClient>;
 
   const mockAuthContext: AuthContext = {
     userId: 'user-1',
@@ -89,7 +35,7 @@ describe('IncomesService (Phase 3.2)', () => {
     role: UserRole.member,
   };
 
-  const mockIncome: MockIncome = {
+  const mockIncome = {
     id: 'income-1',
     userId: 'user-1',
     householdId: 'household-1',
@@ -127,29 +73,14 @@ describe('IncomesService (Phase 3.2)', () => {
   };
 
   beforeEach(async () => {
-    const mockPrisma = {
-      income: {
-        findMany: jest.fn(),
-        findUnique: jest.fn(),
-        findFirst: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-        delete: jest.fn(),
-        count: jest.fn(),
-        aggregate: jest.fn(),
-        groupBy: jest.fn(),
-      },
-      user: {
-        findUnique: jest.fn(),
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
-    };
+    mockPrismaClient = mockDeep<PrismaClient>();
+    mockPrismaService = mockDeep<PrismaService>();
 
-    mockPrismaService = {
-      withContext: jest.fn(),
-      prisma: mockPrisma,
-    };
+    mockPrismaService.prisma = mockPrismaClient;
+
+    // Reset all mocks before each test
+    mockReset(mockPrismaService);
+    mockReset(mockPrismaClient);
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -168,9 +99,6 @@ describe('IncomesService (Phase 3.2)', () => {
     }).compile();
 
     service = module.get<IncomesService>(IncomesService);
-
-    // Reset all mocks
-    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -189,7 +117,7 @@ describe('IncomesService (Phase 3.2)', () => {
           description: 'February 2024 Salary',
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           id: 'income-2',
           grossIncomeYen: 600000,
@@ -200,32 +128,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(mockUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          mockUser,
+        );
 
         // Mock withContext for checking existing income (none found)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -242,7 +166,7 @@ describe('IncomesService (Phase 3.2)', () => {
           deductionYen: 130000,
         };
 
-        const updatedIncome: MockIncome = {
+        const updatedIncome = {
           ...mockIncome,
           grossIncomeYen: 550000,
           deductionYen: 130000,
@@ -250,29 +174,23 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock withContext for finding existing income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(mockIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for the actual update
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 update: jest.fn().mockResolvedValue(updatedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.update(
@@ -296,7 +214,7 @@ describe('IncomesService (Phase 3.2)', () => {
           month: 3,
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           grossIncomeYen: 400000,
           deductionYen: 0,
@@ -305,32 +223,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(mockUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          mockUser,
+        );
 
         // Mock withContext for checking existing income (none found)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -348,7 +262,7 @@ describe('IncomesService (Phase 3.2)', () => {
           month: 4,
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           grossIncomeYen: 300000,
           deductionYen: 300000,
@@ -357,32 +271,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(mockUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          mockUser,
+        );
 
         // Mock withContext for checking existing income (none found)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -443,7 +353,7 @@ describe('IncomesService (Phase 3.2)', () => {
           month: 1,
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           grossIncomeYen: 50000000,
           deductionYen: 5000000,
@@ -451,32 +361,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(mockUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          mockUser,
+        );
 
         // Mock withContext for checking existing income (none found)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -497,19 +403,18 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(mockUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          mockUser,
+        );
 
         // Mock withContext for checking existing income (found existing)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(mockIncome), // Found existing
               },
-            } as MockPrismaClient),
+            }),
         );
 
         await expect(
@@ -534,7 +439,7 @@ describe('IncomesService (Phase 3.2)', () => {
           role: UserRole.member,
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           id: 'income-user2',
           userId: 'user-2',
@@ -544,32 +449,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(newUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          newUser,
+        );
 
         // Mock withContext for checking existing income (none found for user-2)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null), // No existing for user-2
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -587,7 +488,7 @@ describe('IncomesService (Phase 3.2)', () => {
           month: 2, // Different month
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           id: 'income-feb',
           month: 2,
@@ -597,32 +498,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(mockUser);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
+          mockUser,
+        );
 
         // Mock withContext for checking existing income (none found for February)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null), // No existing for February
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -643,7 +540,7 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation (user not found)
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
 
         await expect(
           service.create(createIncomeDto, mockAuthContext),
@@ -660,7 +557,7 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation (user not found)
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
 
         await expect(
           service.create(createIncomeDto, mockAuthContext),
@@ -683,7 +580,7 @@ describe('IncomesService (Phase 3.2)', () => {
           role: UserRole.member,
         };
 
-        const expectedIncome: MockIncome = {
+        const expectedIncome = {
           ...mockIncome,
           userId: 'household-member',
           grossIncomeYen: 350000,
@@ -693,34 +590,28 @@ describe('IncomesService (Phase 3.2)', () => {
         };
 
         // Mock direct prisma access for user validation
-        mockPrismaService.prisma.user.findFirst.mockResolvedValue(
+        (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
           householdMember,
         );
 
         // Mock withContext for checking existing income (none found)
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome | null>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         // Mock withContext for creating income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 create: jest.fn().mockResolvedValue(expectedIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.create(createIncomeDto, mockAuthContext);
@@ -749,16 +640,13 @@ describe('IncomesService (Phase 3.2)', () => {
     describe('Read Operations', () => {
       it('should find income by ID with user details', async () => {
         // Mock withContext for finding income
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<IncomeWithDetails>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(mockIncomeWithDetails),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.findOne('income-1', mockAuthContext);
@@ -771,18 +659,16 @@ describe('IncomesService (Phase 3.2)', () => {
 
       it('should throw NotFoundException when income not found', async () => {
         // Mock withContext for finding income (none found)
-        mockPrismaService.withContext.mockImplementationOnce(
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
-            callback: (
-              prisma: MockPrismaClient,
-            ) => Promise<IncomeWithDetails | null>,
+            callback: (prisma: any) => Promise<IncomeWithDetails | null>,
           ) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         await expect(
@@ -792,16 +678,13 @@ describe('IncomesService (Phase 3.2)', () => {
 
       it('should find income by user and month', async () => {
         // Mock withContext for finding income by user and month
-        mockPrismaService.withContext.mockImplementationOnce(
-          (
-            authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockIncome>,
-          ) =>
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
+          (authContext: AuthContext, callback: (prisma: any) => Promise<any>) =>
             callback({
               income: {
                 findFirst: jest.fn().mockResolvedValue(mockIncome),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.findByUserAndMonth(
@@ -822,18 +705,16 @@ describe('IncomesService (Phase 3.2)', () => {
         const incomes = [mockIncomeWithDetails];
 
         // Mock withContext for finding filtered incomes
-        mockPrismaService.withContext.mockImplementationOnce(
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
-            callback: (
-              prisma: MockPrismaClient,
-            ) => Promise<IncomeWithDetails[]>,
+            callback: (prisma: any) => Promise<IncomeWithDetails[]>,
           ) =>
             callback({
               income: {
                 findMany: jest.fn().mockResolvedValue(incomes),
               },
-            } as MockPrismaClient),
+            }),
         );
 
         const result = await service.findAll(filters, mockAuthContext);

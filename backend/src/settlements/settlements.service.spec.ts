@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { mockDeep, MockProxy, mockReset } from 'jest-mock-extended';
 import { SettlementsService, YearMonth } from './settlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -10,107 +11,12 @@ import {
   TransactionType,
 } from '@prisma/client';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
-
-// Mock interfaces for typed testing
-interface MockTransaction {
-  id: string;
-  householdId: string;
-  type: TransactionType;
-  amountYen: number;
-  occurredOn: Date;
-  shouldPay: string;
-  payerUserId: string;
-  shouldPayUserId: string;
-  actorId: string;
-  userId: string | null;
-  deletedAt: Date | null;
-  payerUser: { id: string; name: string };
-  shouldPayUser: { id: string; name: string };
-}
-
-interface MockIncome {
-  id: string;
-  userId: string;
-  householdId: string;
-  year: number;
-  month: number;
-  allocatableYen: number;
-  deletedAt: Date | null;
-  user: { id: string; name: string };
-}
-
-interface MockPolicy {
-  householdId: string;
-  apportionmentZeroIncome: ApportionmentPolicy;
-  rounding: RoundingPolicy;
-}
-
-interface MockSettlement {
-  id: string;
-  householdId: string;
-  year: number;
-  month: number;
-  status: SettlementStatus;
-  finalizedBy?: string;
-  finalizedAt?: Date;
-  lines: MockSettlementLine[];
-}
-
-interface MockSettlementLine {
-  id: string;
-  settlementId: string;
-  fromUserId: string;
-  toUserId: string;
-  amountYen: number;
-  description: string;
-}
-
-interface MockPrismaSettlementCallback {
-  settlement?: {
-    findUnique?: jest.Mock;
-    findFirst?: jest.Mock;
-    findMany?: jest.Mock;
-    create?: jest.Mock;
-    update?: jest.Mock;
-    deleteMany?: jest.Mock;
-  };
-  transaction?: {
-    findMany?: jest.Mock;
-  };
-  income?: {
-    findMany?: jest.Mock;
-  };
-  policy?: {
-    findUnique?: jest.Mock;
-  };
-}
-
-interface MockPrismaContext {
-  transaction: {
-    findMany: jest.Mock;
-  };
-  income: {
-    findMany: jest.Mock;
-  };
-  policy: {
-    findUnique: jest.Mock;
-  };
-  settlement: {
-    findUnique: jest.Mock;
-    findFirst: jest.Mock;
-    findMany: jest.Mock;
-    create: jest.Mock;
-    update: jest.Mock;
-    deleteMany: jest.Mock;
-  };
-}
+import { PrismaClient } from '@prisma/client';
 
 describe('SettlementsService (Phase 4.1)', () => {
   let service: SettlementsService;
-  let prismaService: {
-    withContext: jest.Mock;
-    prisma: MockPrismaContext;
-  };
+  let mockPrismaService: MockProxy<PrismaService>;
+  let mockPrismaClient: MockProxy<PrismaClient>;
 
   const mockAuthContext: AuthContext = {
     userId: 'user1',
@@ -124,30 +30,14 @@ describe('SettlementsService (Phase 4.1)', () => {
   };
 
   beforeEach(async () => {
-    const mockPrisma: MockPrismaContext = {
-      transaction: {
-        findMany: jest.fn(),
-      },
-      income: {
-        findMany: jest.fn(),
-      },
-      policy: {
-        findUnique: jest.fn(),
-      },
-      settlement: {
-        findUnique: jest.fn(),
-        findFirst: jest.fn(),
-        findMany: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-        deleteMany: jest.fn(),
-      },
-    };
+    mockPrismaClient = mockDeep<PrismaClient>();
+    mockPrismaService = mockDeep<PrismaService>();
 
-    const mockPrismaService = {
-      withContext: jest.fn(),
-      prisma: mockPrisma,
-    };
+    mockPrismaService.prisma = mockPrismaClient;
+
+    // Reset all mocks before each test
+    mockReset(mockPrismaService);
+    mockReset(mockPrismaClient);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -160,12 +50,11 @@ describe('SettlementsService (Phase 4.1)', () => {
     }).compile();
 
     service = module.get<SettlementsService>(SettlementsService);
-    prismaService = module.get(PrismaService);
   });
 
   describe('runSettlement - Core Algorithm Tests', () => {
     it('should prevent concurrent settlements for same month', async () => {
-      const existingSettlement: MockSettlement = {
+      const existingSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -174,12 +63,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -194,7 +81,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should compute income weights correctly with normal income distribution', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -212,7 +99,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -235,13 +122,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -259,12 +146,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         ],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -304,7 +189,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle zero income with EXCLUDE policy', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -322,7 +207,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -345,13 +230,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -360,12 +245,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -395,7 +278,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle zero income with MIN_SHARE policy', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -413,7 +296,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -436,13 +319,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.MIN_SHARE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -460,12 +343,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         ],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -501,7 +382,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should apply different rounding policies correctly', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -519,7 +400,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -549,13 +430,13 @@ describe('SettlementsService (Phase 4.1)', () => {
       ];
 
       for (const roundingPolicy of testRoundingPolicies) {
-        const mockPolicy: MockPolicy = {
+        const mockPolicy = {
           householdId: 'household1',
           apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
           rounding: roundingPolicy,
         };
 
-        const createdSettlement: MockSettlement = {
+        const createdSettlement = {
           id: 'settlement1',
           householdId: 'household1',
           year: 2024,
@@ -573,12 +454,10 @@ describe('SettlementsService (Phase 4.1)', () => {
           ],
         };
 
-        prismaService.withContext.mockImplementation(
+        mockPrismaService.withContext.mockImplementation(
           (
             authContext: AuthContext,
-            callback: (
-              prisma: MockPrismaSettlementCallback,
-            ) => Promise<MockSettlement>,
+            callback: (prisma: any) => Promise<MockSettlement>,
           ) =>
             callback({
               settlement: {
@@ -612,7 +491,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle personal expense reimbursements correctly', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -630,7 +509,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -643,13 +522,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -667,12 +546,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         ],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -705,10 +582,10 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should use default policy when no policy exists', async () => {
-      const mockTransactions: MockTransaction[] = [];
-      const mockIncomes: MockIncome[] = [];
+      const mockTransactions = [];
+      const mockIncomes = [];
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -717,12 +594,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -754,7 +629,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle complex multi-user scenarios with greedy netting', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -787,7 +662,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -820,13 +695,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -852,12 +727,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         ],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -894,7 +767,7 @@ describe('SettlementsService (Phase 4.1)', () => {
 
   describe('finalizeSettlement', () => {
     it('should finalize draft settlement successfully', async () => {
-      const draftSettlement: MockSettlement = {
+      const draftSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -912,19 +785,17 @@ describe('SettlementsService (Phase 4.1)', () => {
         ],
       };
 
-      const finalizedSettlement: MockSettlement = {
+      const finalizedSettlement = {
         ...draftSettlement,
         status: SettlementStatus.FINALIZED,
         finalizedBy: 'user1',
         finalizedAt: new Date(),
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -957,7 +828,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should prevent finalizing already finalized settlement', async () => {
-      const finalizedSettlement: MockSettlement = {
+      const finalizedSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -966,12 +837,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -986,12 +855,10 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should throw NotFoundException for non-existent settlement', async () => {
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1008,7 +875,7 @@ describe('SettlementsService (Phase 4.1)', () => {
 
   describe('findOne', () => {
     it('should find settlement by ID successfully', async () => {
-      const mockSettlement: MockSettlement = {
+      const mockSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -1017,12 +884,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1039,12 +904,10 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should throw NotFoundException for non-existent settlement', async () => {
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1080,12 +943,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1102,12 +963,10 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should return empty array when no settlements exist', async () => {
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1124,7 +983,7 @@ describe('SettlementsService (Phase 4.1)', () => {
 
   describe('Edge Cases and Mathematical Accuracy', () => {
     it('should handle single user household correctly', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -1142,7 +1001,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -1155,13 +1014,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -1170,12 +1029,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [], // No transfers needed in single user household
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1205,8 +1062,8 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle month with no transactions', async () => {
-      const mockTransactions: MockTransaction[] = [];
-      const mockIncomes: MockIncome[] = [
+      const mockTransactions = [];
+      const mockIncomes = [
         {
           id: 'income1',
           userId: 'user1',
@@ -1219,13 +1076,13 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -1234,12 +1091,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {
@@ -1270,7 +1125,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle month with no incomes', async () => {
-      const mockTransactions: MockTransaction[] = [
+      const mockTransactions = [
         {
           id: 'tx1',
           householdId: 'household1',
@@ -1288,15 +1143,15 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes: MockIncome[] = [];
+      const mockIncomes = [];
 
-      const mockPolicy: MockPolicy = {
+      const mockPolicy = {
         householdId: 'household1',
         apportionmentZeroIncome: ApportionmentPolicy.EXCLUDE,
         rounding: RoundingPolicy.ROUND,
       };
 
-      const createdSettlement: MockSettlement = {
+      const createdSettlement = {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
@@ -1305,12 +1160,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         lines: [],
       };
 
-      prismaService.withContext.mockImplementation(
+      mockPrismaService.withContext.mockImplementation(
         (
           authContext: AuthContext,
-          callback: (
-            prisma: MockPrismaSettlementCallback,
-          ) => Promise<MockSettlement>,
+          callback: (prisma: any) => Promise<MockSettlement>,
         ) =>
           callback({
             settlement: {

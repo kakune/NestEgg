@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TransactionType, UserRole } from '@prisma/client';
+import { mockDeep, MockProxy, mockReset } from 'jest-mock-extended';
+import { TransactionType, UserRole, PrismaClient } from '@prisma/client';
 
 import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,75 +17,12 @@ import {
 } from './transactions.service';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
 
-interface MockTransaction {
-  id: string;
-  householdId: string;
-  actorId: string;
-  categoryId: string;
-  payerUserId: string;
-  shouldPayUserId: string;
-  amount: number;
-  type: TransactionType;
-  description: string;
-  date: Date;
-  tags: string[];
-  notes: string;
-  shouldPay: boolean;
-  sourceHash: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}
-
-interface MockActor {
-  id: string;
-  name: string;
-  type: string;
-}
-
-interface MockCategory {
-  id: string;
-  name: string;
-  parent?: {
-    id: string;
-    name: string;
-  };
-}
-
-interface MockPrismaClient {
-  transaction: {
-    findMany: jest.Mock;
-    findFirst: jest.Mock;
-    create: jest.Mock;
-    update: jest.Mock;
-    deleteMany: jest.Mock;
-    count: jest.Mock;
-    aggregate: jest.Mock;
-  };
-}
-
 describe('TransactionsService (Phase 3.1)', () => {
   let service: TransactionsService;
-  let mockPrismaService: {
-    withContext: jest.Mock;
-    prisma: {
-      transaction: {
-        findMany: jest.Mock;
-        findFirst: jest.Mock;
-        create: jest.Mock;
-        update: jest.Mock;
-        deleteMany: jest.Mock;
-        count: jest.Mock;
-        aggregate: jest.Mock;
-      };
-    };
-  };
-  let mockActorsService: {
-    findOne: jest.Mock;
-  };
-  let mockCategoriesService: {
-    findOne: jest.Mock;
-  };
+  let mockPrismaService: MockProxy<PrismaService>;
+  let mockPrismaClient: MockProxy<PrismaClient>;
+  let mockActorsService: MockProxy<ActorsService>;
+  let mockCategoriesService: MockProxy<CategoriesService>;
 
   const mockAuthContext: AuthContext = {
     userId: 'user-1',
@@ -92,7 +30,7 @@ describe('TransactionsService (Phase 3.1)', () => {
     role: UserRole.admin,
   };
 
-  const mockTransaction: MockTransaction = {
+  const mockTransaction = {
     id: 'transaction-1',
     householdId: 'household-1',
     actorId: 'actor-1',
@@ -129,13 +67,13 @@ describe('TransactionsService (Phase 3.1)', () => {
     },
   };
 
-  const mockActor: MockActor = {
+  const mockActor = {
     id: 'actor-1',
     name: 'User 1',
     type: 'USER',
   };
 
-  const mockCategory: MockCategory = {
+  const mockCategory = {
     id: 'category-1',
     name: 'Food & Dining',
     parent: {
@@ -145,30 +83,18 @@ describe('TransactionsService (Phase 3.1)', () => {
   };
 
   beforeEach(async () => {
-    const mockPrisma = {
-      transaction: {
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-        deleteMany: jest.fn(),
-        count: jest.fn(),
-        aggregate: jest.fn(),
-      },
-    };
+    mockPrismaClient = mockDeep<PrismaClient>();
+    mockPrismaService = mockDeep<PrismaService>();
+    mockActorsService = mockDeep<ActorsService>();
+    mockCategoriesService = mockDeep<CategoriesService>();
 
-    mockPrismaService = {
-      withContext: jest.fn(),
-      prisma: mockPrisma,
-    };
+    mockPrismaService.prisma = mockPrismaClient;
 
-    mockActorsService = {
-      findOne: jest.fn(),
-    };
-
-    mockCategoriesService = {
-      findOne: jest.fn(),
-    };
+    // Reset all mocks before each test
+    mockReset(mockPrismaService);
+    mockReset(mockPrismaClient);
+    mockReset(mockActorsService);
+    mockReset(mockCategoriesService);
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -195,9 +121,6 @@ describe('TransactionsService (Phase 3.1)', () => {
     }).compile();
 
     service = module.get<TransactionsService>(TransactionsService);
-
-    // Reset all mocks
-    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -251,10 +174,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -296,10 +221,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -337,10 +264,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -385,10 +314,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -424,10 +355,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -594,10 +527,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -708,10 +643,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -761,10 +698,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -801,10 +740,12 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock no duplicate transaction
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(null);
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
 
         // Mock withContext for creation
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -845,7 +786,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock duplicate transaction found
-        mockPrismaService.prisma.transaction.findFirst.mockResolvedValue(
+        (mockPrismaClient.transaction.findFirst as jest.Mock).mockResolvedValue(
           mockTransaction,
         );
 
@@ -858,7 +799,7 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Read Operations', () => {
       it('should find transaction by ID with details', async () => {
         // Mock withContext for finding transaction
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (
@@ -883,7 +824,7 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should throw NotFoundException when transaction not found', async () => {
         // Mock withContext for finding transaction (not found)
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (
@@ -912,7 +853,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         const transactions = [mockTransactionWithDetails];
 
         // Mock withContext for finding transactions
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (
@@ -949,7 +890,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         };
 
         // Mock withContext for finding existing transaction
-        mockPrismaService.withContext.mockImplementationOnce(
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
             callback: (
@@ -970,7 +911,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         mockActorsService.findOne.mockResolvedValue(mockActor);
 
         // Mock withContext for updating transaction
-        mockPrismaService.withContext.mockImplementationOnce(
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
@@ -997,7 +938,7 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Delete Operations', () => {
       it('should soft delete transaction successfully', async () => {
         // Mock withContext for finding transaction
-        mockPrismaService.withContext.mockImplementationOnce(
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
             callback: (
@@ -1014,7 +955,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         );
 
         // Mock withContext for soft deleting transaction
-        mockPrismaService.withContext.mockImplementationOnce(
+        (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
             callback: (prisma: MockPrismaClient) => Promise<void>,
@@ -1036,7 +977,7 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should throw NotFoundException when deleting non-existent transaction', async () => {
         // Mock withContext for finding transaction (not found)
-        mockPrismaService.withContext.mockImplementation(
+        (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
             callback: (
@@ -1129,12 +1070,12 @@ describe('TransactionsService (Phase 3.1)', () => {
       mockActorsService.findOne.mockResolvedValue(mockActor);
 
       // Mock concurrent creation scenario - first call succeeds, second finds duplicate
-      mockPrismaService.prisma.transaction.findFirst
+      (mockPrismaClient.transaction.findFirst as jest.Mock)
         .mockResolvedValueOnce(null) // First check: no duplicate
         .mockResolvedValueOnce(mockTransaction); // Second check: duplicate found
 
       // First creation should succeed
-      mockPrismaService.withContext.mockImplementationOnce(
+      (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
         (
           authContext: AuthContext,
           callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
