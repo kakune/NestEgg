@@ -20,36 +20,25 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { Category } from '@prisma/client';
-import {
-  AuthContext,
-  AuthenticatedUser,
-} from '../common/interfaces/auth-context.interface';
+import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 @Controller('categories')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
-  private getAuthContext(user: AuthenticatedUser): AuthContext {
-    return {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-  }
-
   @Get()
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryWithChildren[]> {
-    return this.categoriesService.findAll(this.getAuthContext(user));
+    return this.categoriesService.findAll(user);
   }
 
   @Get('tree')
   async getCategoryTree(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryWithChildren[]> {
-    return this.categoriesService.getCategoryTree(this.getAuthContext(user));
+    return this.categoriesService.getCategoryTree(user);
   }
 
   @Get(':id')
@@ -57,7 +46,7 @@ export class CategoriesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CategoryWithChildren> {
-    return this.categoriesService.findOne(id, this.getAuthContext(user));
+    return this.categoriesService.findOne(id, user);
   }
 
   @Get(':id/path')
@@ -65,10 +54,7 @@ export class CategoriesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Category[]> {
-    return this.categoriesService.getCategoryPath(
-      id,
-      this.getAuthContext(user),
-    );
+    return this.categoriesService.getCategoryPath(id, user);
   }
 
   @Get(':id/stats')
@@ -76,10 +62,7 @@ export class CategoriesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
-    return this.categoriesService.getCategoryStats(
-      id,
-      this.getAuthContext(user),
-    );
+    return this.categoriesService.getCategoryStats(id, user);
   }
 
   @Post()
@@ -88,10 +71,7 @@ export class CategoriesController {
     @Body() createCategoryDto: CreateCategoryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Category> {
-    return this.categoriesService.create(
-      createCategoryDto,
-      this.getAuthContext(user),
-    );
+    return this.categoriesService.create(createCategoryDto, user);
   }
 
   @Put(':id')
@@ -100,11 +80,7 @@ export class CategoriesController {
     @Body() updateCategoryDto: UpdateCategoryDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Category> {
-    return this.categoriesService.update(
-      id,
-      updateCategoryDto,
-      this.getAuthContext(user),
-    );
+    return this.categoriesService.update(id, updateCategoryDto, user);
   }
 
   @Delete(':id')
@@ -113,6 +89,6 @@ export class CategoriesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.categoriesService.remove(id, this.getAuthContext(user));
+    await this.categoriesService.remove(id, user);
   }
 }

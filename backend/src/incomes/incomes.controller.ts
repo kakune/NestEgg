@@ -19,7 +19,6 @@ import {
   IncomeWithDetails,
   IncomeStatistics,
 } from './incomes.service';
-import { AuthContext } from '../common/interfaces/auth-context.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -71,20 +70,11 @@ interface SearchQueryParams {
 export class IncomesController {
   constructor(private readonly incomesService: IncomesService) {}
 
-  private getAuthContext(user: AuthenticatedUser): AuthContext {
-    return {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-  }
-
   @Get()
   async findAll(
     @Query() query: IncomeQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId: query.userId,
       year: query.year ? parseInt(query.year) : undefined,
@@ -109,7 +99,7 @@ export class IncomesController {
       sortOrder: query.sortOrder as 'asc' | 'desc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get('statistics')
@@ -117,14 +107,13 @@ export class IncomesController {
     @Query() query: StatisticsQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeStatistics> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId: query.userId,
       yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
       yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
     };
 
-    return this.incomesService.getIncomeStatistics(filters, authContext);
+    return this.incomesService.getIncomeStatistics(filters, user);
   }
 
   @Get('breakdown/:year')
@@ -133,14 +122,13 @@ export class IncomesController {
     @Query('month') month?: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
-    const authContext = this.getAuthContext(user);
     const yearNum = parseInt(year);
     const monthNum = month ? parseInt(month) : undefined;
 
     return this.incomesService.getHouseholdIncomeBreakdown(
       yearNum,
       monthNum,
-      authContext,
+      user,
     );
   }
 
@@ -150,7 +138,6 @@ export class IncomesController {
     @Query() query: IncomeQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId,
       year: query.year ? parseInt(query.year) : undefined,
@@ -168,7 +155,7 @@ export class IncomesController {
       sortOrder: query.sortOrder as 'asc' | 'desc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get('user/:userId/year/:year')
@@ -177,7 +164,6 @@ export class IncomesController {
     @Param('year') year: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       userId,
       year: parseInt(year),
@@ -185,7 +171,7 @@ export class IncomesController {
       sortOrder: 'asc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get('user/:userId/month/:year/:month')
@@ -199,7 +185,7 @@ export class IncomesController {
       userId,
       parseInt(year),
       parseInt(month),
-      this.getAuthContext(user),
+      user,
     );
   }
 
@@ -209,7 +195,6 @@ export class IncomesController {
     @Query() query: YearQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       year: parseInt(year),
       month: query.month ? parseInt(query.month) : undefined,
@@ -226,7 +211,7 @@ export class IncomesController {
       sortOrder: (query.sortOrder as 'asc' | 'desc') || 'asc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get('search')
@@ -235,7 +220,6 @@ export class IncomesController {
     @Query() query: SearchQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       search: searchQuery,
       userId: query.userId,
@@ -248,7 +232,7 @@ export class IncomesController {
       sortOrder: 'desc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get('recent')
@@ -256,14 +240,13 @@ export class IncomesController {
     @Query('limit') limit: string = '12', // Default to 12 months
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const filters: IncomeFilters = {
       limit: parseInt(limit),
       sortBy: 'year',
       sortOrder: 'desc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get('current-year')
@@ -271,7 +254,6 @@ export class IncomesController {
     @Query('userId') userId?: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
-    const authContext = this.getAuthContext(user);
     const currentYear = new Date().getFullYear();
     const filters: IncomeFilters = {
       year: currentYear,
@@ -280,7 +262,7 @@ export class IncomesController {
       sortOrder: 'asc',
     };
 
-    return this.incomesService.findAll(filters, authContext);
+    return this.incomesService.findAll(filters, user);
   }
 
   @Get(':id')
@@ -288,7 +270,7 @@ export class IncomesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails> {
-    return this.incomesService.findOne(id, this.getAuthContext(user));
+    return this.incomesService.findOne(id, user);
   }
 
   @Post()
@@ -297,10 +279,7 @@ export class IncomesController {
     @Body() createIncomeDto: CreateIncomeDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Income> {
-    return this.incomesService.create(
-      createIncomeDto,
-      this.getAuthContext(user),
-    );
+    return this.incomesService.create(createIncomeDto, user);
   }
 
   @Post('bulk')
@@ -308,23 +287,11 @@ export class IncomesController {
   async createBulk(
     @Body() createIncomeDtos: CreateIncomeDto[],
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Income[]> {
-    const authContext = this.getAuthContext(user);
-    const results: Income[] = [];
-    for (const dto of createIncomeDtos) {
-      try {
-        const income = await this.incomesService.create(dto, authContext);
-        results.push(income);
-      } catch (error) {
-        // Log error but continue with other incomes
-        console.error(
-          `Failed to create income for ${dto.userId} ${dto.year}-${dto.month}`,
-          error,
-        );
-      }
-    }
-
-    return results;
+  ): Promise<{
+    count: number;
+    errors: Array<{ dto: CreateIncomeDto; error: string }>;
+  }> {
+    return this.incomesService.createMany(createIncomeDtos, user);
   }
 
   @Put(':id')
@@ -333,11 +300,7 @@ export class IncomesController {
     @Body() updateIncomeDto: UpdateIncomeDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Income> {
-    return this.incomesService.update(
-      id,
-      updateIncomeDto,
-      this.getAuthContext(user),
-    );
+    return this.incomesService.update(id, updateIncomeDto, user);
   }
 
   @Delete(':id')
@@ -346,32 +309,24 @@ export class IncomesController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.incomesService.remove(id, this.getAuthContext(user));
+    await this.incomesService.remove(id, user);
   }
 
   @Delete('user/:userId/year/:year')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async removeByUserAndYear(
     @Param('userId') userId: string,
     @Param('year') year: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    const authContext = this.getAuthContext(user);
-    // Find all incomes for the user and year, then delete them
+  ): Promise<{
+    count: number;
+    errors: Array<{ id: string; error: string }>;
+  }> {
     const filters: IncomeFilters = {
       userId,
       year: parseInt(year),
     };
 
-    const incomes = await this.incomesService.findAll(filters, authContext);
-
-    for (const income of incomes) {
-      try {
-        await this.incomesService.remove(income.id, authContext);
-      } catch (error) {
-        // Log error but continue with other deletions
-        console.error(`Failed to delete income: ${income.id}`, error);
-      }
-    }
+    return this.incomesService.removeByFilters(filters, user);
   }
 }

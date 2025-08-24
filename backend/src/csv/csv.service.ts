@@ -1,7 +1,10 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TransactionsService } from '../transactions/transactions.service';
-import { IncomesService } from '../incomes/incomes.service';
+import {
+  TransactionsService,
+  CreateTransactionDto,
+} from '../transactions/transactions.service';
+import { IncomesService, CreateIncomeDto } from '../incomes/incomes.service';
 import { ActorsService } from '../actors/actors.service';
 import { CategoriesService } from '../categories/categories.service';
 import { UserRole, TransactionType } from '@prisma/client';
@@ -209,7 +212,9 @@ export class CsvService {
 
     const existingHashes = await this.getExistingTransactionHashes(authContext);
     const processedHashes = new Set<string>();
+    const validTransactions: CreateTransactionDto[] = [];
 
+    // First pass: validate and prepare all transactions
     for (let i = 0; i < parsed.data.length; i++) {
       const row = parsed.data[i] as CsvRow;
       const rowNumber = i + 2;
@@ -247,16 +252,10 @@ export class CsvService {
           continue;
         }
 
-        // Create transaction
-        await this.transactionsService.create(
-          {
-            ...mappedData,
-            sourceHash,
-          },
-          authContext,
-        );
-
-        result.successful++;
+        validTransactions.push({
+          ...mappedData,
+          sourceHash,
+        } as CreateTransactionDto);
         processedHashes.add(sourceHash);
       } catch (error: unknown) {
         result.failed++;
@@ -267,7 +266,27 @@ export class CsvService {
           message:
             error instanceof Error
               ? error.message
-              : 'Failed to create transaction',
+              : 'Failed to validate transaction',
+        });
+      }
+    }
+
+    // Second pass: bulk create valid transactions
+    if (validTransactions.length > 0) {
+      const bulkResult = await this.transactionsService.createMany(
+        validTransactions,
+        authContext,
+      );
+      result.successful = bulkResult.count;
+
+      // Add any bulk creation errors to the result
+      for (const error of bulkResult.errors) {
+        result.failed++;
+        result.errors.push({
+          row: 0, // We can't map back to specific row after bulk operation
+          field: 'general',
+          value: '',
+          message: error.error,
         });
       }
     }
@@ -343,6 +362,35 @@ export class CsvService {
       errors: [],
     };
 
+    const validIncomes: CreateIncomeDto[] = [];
+    const processedKeys = new Set<string>();
+
+    // Get all existing incomes for the household to check duplicates efficiently
+    const existingIncomes = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.income.findMany({
+          where: {
+            householdId: authContext.householdId,
+            deletedAt: null,
+          },
+          select: {
+            userId: true,
+            year: true,
+            month: true,
+          },
+        });
+      },
+    );
+
+    const existingKeys = new Set(
+      existingIncomes.map(
+        (income) =>
+          `${income.userId}-${String(income.year)}-${String(income.month)}`,
+      ),
+    );
+
+    // First pass: validate and prepare all incomes
     for (let i = 0; i < parsed.data.length; i++) {
       const row = parsed.data[i] as CsvRow;
       const rowNumber = i + 2;
@@ -365,30 +413,23 @@ export class CsvService {
           continue;
         }
 
-        // Check for existing income for same user/year/month
-        const existingIncome = await this.incomesService.findByUserAndMonth(
-          mappedData.userId,
-          mappedData.year,
-          mappedData.month,
-          authContext,
-        );
+        const incomeKey = `${mappedData.userId}-${mappedData.year}-${mappedData.month}`;
 
-        if (existingIncome) {
+        if (existingKeys.has(incomeKey) || processedKeys.has(incomeKey)) {
           result.duplicates++;
           if (!skipDuplicates) {
             result.errors.push({
               row: rowNumber,
               field: 'duplicate',
-              value: `${String(mappedData.userId || '')}-${String(mappedData.year || '')}-${String(mappedData.month || '')}`,
+              value: incomeKey,
               message: 'Income for this user/month already exists',
             });
           }
           continue;
         }
 
-        // Create income
-        await this.incomesService.create(mappedData, authContext);
-        result.successful++;
+        validIncomes.push(mappedData as CreateIncomeDto);
+        processedKeys.add(incomeKey);
       } catch (error: unknown) {
         result.failed++;
         result.errors.push({
@@ -396,7 +437,29 @@ export class CsvService {
           field: 'general',
           value: '',
           message:
-            error instanceof Error ? error.message : 'Failed to create income',
+            error instanceof Error
+              ? error.message
+              : 'Failed to validate income',
+        });
+      }
+    }
+
+    // Second pass: bulk create valid incomes
+    if (validIncomes.length > 0) {
+      const bulkResult = await this.incomesService.createMany(
+        validIncomes,
+        authContext,
+      );
+      result.successful = bulkResult.count;
+
+      // Add any bulk creation errors to the result
+      for (const error of bulkResult.errors) {
+        result.failed++;
+        result.errors.push({
+          row: 0, // We can't map back to specific row after bulk operation
+          field: 'general',
+          value: '',
+          message: error.error,
         });
       }
     }

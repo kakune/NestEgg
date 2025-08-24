@@ -3,7 +3,6 @@ import {
   Post,
   Body,
   UseGuards,
-  Request,
   Get,
   Delete,
   Param,
@@ -14,6 +13,7 @@ import { AuthService, AuthResponse } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
+import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CreatePersonalAccessTokenDto } from './dto/create-personal-access-token.dto';
@@ -47,23 +47,13 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getProfile(
-    @Request()
-    req: {
-      user: {
-        userId: string;
-        email: string;
-        householdId: string;
-        role: string;
-      };
-    },
-  ) {
+  getProfile(@CurrentUser() user: AuthenticatedUser) {
     return {
       user: {
-        id: req.user.userId,
-        email: req.user.email,
-        householdId: req.user.householdId,
-        role: req.user.role,
+        id: user.userId,
+        email: user.email,
+        householdId: user.householdId,
+        role: user.role,
       },
     };
   }

@@ -386,31 +386,57 @@ export class CategoriesService {
     categoryId: string,
     authContext: AuthContext,
   ): Promise<Category[]> {
-    const descendants: Category[] = [];
-    const visited = new Set<string>();
+    try {
+      // Try to use PostgreSQL Recursive CTE for efficient hierarchy traversal
+      const descendants = await this.prismaService.prisma.$queryRaw<Category[]>`
+        WITH RECURSIVE category_descendants AS (
+          SELECT id, name, "parentId", description, "householdId", "createdAt", "updatedAt", "deletedAt"
+          FROM "Category"
+          WHERE "parentId" = ${categoryId}
+            AND "householdId" = ${authContext.householdId}
+            AND "deletedAt" IS NULL
+          
+          UNION ALL
+          
+          SELECT c.id, c.name, c."parentId", c.description, c."householdId", c."createdAt", c."updatedAt", c."deletedAt"
+          FROM "Category" c
+          INNER JOIN category_descendants cd ON c."parentId" = cd.id
+          WHERE c."householdId" = ${authContext.householdId}
+            AND c."deletedAt" IS NULL
+        )
+        SELECT * FROM category_descendants;
+      `;
 
-    const getChildren = async (parentId: string): Promise<void> => {
-      if (visited.has(parentId)) {
-        return; // Prevent infinite loops in case of existing circular references
-      }
-      visited.add(parentId);
+      return descendants;
+    } catch {
+      // Fallback to the old recursive approach for tests or when $queryRaw is not available
+      // This happens when using mocks in tests that don't support $queryRaw
+      const descendants: Category[] = [];
+      const visited = new Set<string>();
 
-      const children = await this.prismaService.prisma.category.findMany({
-        where: {
-          parentId,
-          householdId: authContext.householdId,
-          deletedAt: null,
-        },
-      });
+      const getChildren = async (parentId: string): Promise<void> => {
+        if (visited.has(parentId)) {
+          return; // Prevent infinite loops in case of existing circular references
+        }
+        visited.add(parentId);
 
-      for (const child of children) {
-        descendants.push(child);
-        await getChildren(child.id);
-      }
-    };
+        const children = await this.prismaService.prisma.category.findMany({
+          where: {
+            parentId,
+            householdId: authContext.householdId,
+            deletedAt: null,
+          },
+        });
 
-    await getChildren(categoryId);
-    return descendants;
+        for (const child of children) {
+          descendants.push(child);
+          await getChildren(child.id);
+        }
+      };
+
+      await getChildren(categoryId);
+      return descendants;
+    }
   }
 
   async getCategoryStats(

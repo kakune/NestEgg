@@ -19,27 +19,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { Actor } from '@prisma/client';
-import {
-  AuthContext,
-  AuthenticatedUser,
-} from '../common/interfaces/auth-context.interface';
+import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 @Controller('actors')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ActorsController {
   constructor(private readonly actorsService: ActorsService) {}
 
-  private getAuthContext(user: AuthenticatedUser): AuthContext {
-    return {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-  }
-
   @Get()
   async findAll(@CurrentUser() user: AuthenticatedUser): Promise<Actor[]> {
-    return this.actorsService.findAll(this.getAuthContext(user));
+    return this.actorsService.findAll(user);
   }
 
   @Get(':id')
@@ -47,7 +36,7 @@ export class ActorsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor> {
-    return this.actorsService.findOne(id, this.getAuthContext(user));
+    return this.actorsService.findOne(id, user);
   }
 
   @Get('user/:userId')
@@ -55,7 +44,7 @@ export class ActorsController {
     @Param('userId') userId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor[]> {
-    return this.actorsService.findByUserId(userId, this.getAuthContext(user));
+    return this.actorsService.findByUserId(userId, user);
   }
 
   @Get(':id/stats')
@@ -63,7 +52,7 @@ export class ActorsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
-    return this.actorsService.getActorStats(id, this.getAuthContext(user));
+    return this.actorsService.getActorStats(id, user);
   }
 
   @Post()
@@ -72,7 +61,7 @@ export class ActorsController {
     @Body() createActorDto: CreateActorDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor> {
-    return this.actorsService.create(createActorDto, this.getAuthContext(user));
+    return this.actorsService.create(createActorDto, user);
   }
 
   @Put(':id')
@@ -81,11 +70,7 @@ export class ActorsController {
     @Body() updateActorDto: UpdateActorDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Actor> {
-    return this.actorsService.update(
-      id,
-      updateActorDto,
-      this.getAuthContext(user),
-    );
+    return this.actorsService.update(id, updateActorDto, user);
   }
 
   @Delete(':id')
@@ -94,6 +79,6 @@ export class ActorsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.actorsService.remove(id, this.getAuthContext(user));
+    await this.actorsService.remove(id, user);
   }
 }

@@ -401,6 +401,135 @@ export class TransactionsService {
     });
   }
 
+  async createMany(
+    dtos: CreateTransactionDto[],
+    authContext: AuthContext,
+  ): Promise<{
+    count: number;
+    errors: Array<{ dto: CreateTransactionDto; error: string }>;
+  }> {
+    const errors: Array<{ dto: CreateTransactionDto; error: string }> = [];
+    const validDtos: CreateTransactionDto[] = [];
+
+    // Validate all DTOs first
+    for (const dto of dtos) {
+      try {
+        await this.validateTransaction(dto, authContext);
+
+        // Check for duplicate if source hash is provided
+        if (dto.sourceHash) {
+          const existingTransaction =
+            await this.prismaService.prisma.transaction.findFirst({
+              where: {
+                sourceHash: dto.sourceHash,
+                householdId: authContext.householdId,
+              },
+            });
+
+          if (existingTransaction) {
+            errors.push({ dto, error: 'Duplicate transaction detected' });
+            continue;
+          }
+        }
+
+        validDtos.push(dto);
+      } catch (error) {
+        errors.push({
+          dto,
+          error:
+            error instanceof Error ? error.message : 'Unknown validation error',
+        });
+      }
+    }
+
+    if (validDtos.length === 0) {
+      return { count: 0, errors };
+    }
+
+    // Bulk create valid transactions
+    const dataToCreate = validDtos.map((dto) => ({
+      amount: dto.amount,
+      type: dto.type,
+      description: dto.description,
+      date: dto.date,
+      categoryId: dto.categoryId,
+      actorId: dto.actorId,
+      tags: dto.tags || [],
+      notes: dto.notes,
+      shouldPay: dto.shouldPay ?? this.calculateShouldPay(dto),
+      sourceHash: dto.sourceHash || this.generateSourceHash(dto),
+      householdId: authContext.householdId,
+    }));
+
+    const result = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.transaction.createMany({
+          data: dataToCreate,
+          skipDuplicates: true,
+        });
+      },
+    );
+
+    return { count: result.count, errors };
+  }
+
+  async removeMany(
+    ids: string[],
+    authContext: AuthContext,
+  ): Promise<{ count: number; errors: Array<{ id: string; error: string }> }> {
+    if (ids.length === 0) {
+      return { count: 0, errors: [] };
+    }
+
+    const errors: Array<{ id: string; error: string }> = [];
+
+    // First verify all transactions exist and belong to the household
+    const existingTransactions = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.transaction.findMany({
+          where: {
+            id: { in: ids },
+            householdId: authContext.householdId,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+      },
+    );
+
+    const existingIds = new Set(existingTransactions.map((t) => t.id));
+
+    for (const id of ids) {
+      if (!existingIds.has(id)) {
+        errors.push({ id, error: 'Transaction not found or already deleted' });
+      }
+    }
+
+    const validIds = ids.filter((id) => existingIds.has(id));
+
+    if (validIds.length === 0) {
+      return { count: 0, errors };
+    }
+
+    // Bulk soft delete
+    const result = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.transaction.updateMany({
+          where: {
+            id: { in: validIds },
+            householdId: authContext.householdId,
+          },
+          data: { deletedAt: new Date() },
+        });
+      },
+    );
+
+    return { count: result.count, errors };
+  }
+
   async getTransactionSummary(
     filters: TransactionFilters,
     authContext: AuthContext,

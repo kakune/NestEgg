@@ -334,6 +334,153 @@ export class IncomesService {
     });
   }
 
+  async createMany(
+    dtos: CreateIncomeDto[],
+    authContext: AuthContext,
+  ): Promise<{
+    count: number;
+    errors: Array<{ dto: CreateIncomeDto; error: string }>;
+  }> {
+    const errors: Array<{ dto: CreateIncomeDto; error: string }> = [];
+    const validDtos: CreateIncomeDto[] = [];
+
+    // Validate all DTOs first and check for duplicates
+    for (const dto of dtos) {
+      try {
+        await this.validateIncome(dto, authContext);
+
+        // Check monthly uniqueness constraint
+        const existingIncome = await this.findByUserAndMonth(
+          dto.userId,
+          dto.year,
+          dto.month,
+          authContext,
+        );
+
+        if (existingIncome) {
+          errors.push({
+            dto,
+            error: `Income for user ${dto.userId} already exists for ${dto.year}-${dto.month.toString().padStart(2, '0')}`,
+          });
+          continue;
+        }
+
+        validDtos.push(dto);
+      } catch (error) {
+        errors.push({
+          dto,
+          error:
+            error instanceof Error ? error.message : 'Unknown validation error',
+        });
+      }
+    }
+
+    if (validDtos.length === 0) {
+      return { count: 0, errors };
+    }
+
+    // Bulk create valid incomes
+    const dataToCreate = validDtos.map((dto) => ({
+      userId: dto.userId,
+      grossIncomeYen: dto.grossIncomeYen,
+      deductionYen: dto.deductionYen,
+      allocatableYen: this.calculateAllocatableYen(
+        dto.grossIncomeYen,
+        dto.deductionYen,
+      ),
+      year: dto.year,
+      month: dto.month,
+      description: dto.description,
+      sourceDocument: dto.sourceDocument,
+      householdId: authContext.householdId,
+    }));
+
+    const result = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.income.createMany({
+          data: dataToCreate,
+          skipDuplicates: true,
+        });
+      },
+    );
+
+    return { count: result.count, errors };
+  }
+
+  async removeMany(
+    ids: string[],
+    authContext: AuthContext,
+  ): Promise<{
+    count: number;
+    errors: Array<{ id: string; error: string }>;
+  }> {
+    if (ids.length === 0) {
+      return { count: 0, errors: [] };
+    }
+
+    const errors: Array<{ id: string; error: string }> = [];
+
+    // First verify all incomes exist and belong to the household
+    const existingIncomes = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.income.findMany({
+          where: {
+            id: { in: ids },
+            householdId: authContext.householdId,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+      },
+    );
+
+    const existingIds = new Set(existingIncomes.map((i) => i.id));
+
+    for (const id of ids) {
+      if (!existingIds.has(id)) {
+        errors.push({ id, error: 'Income not found or already deleted' });
+      }
+    }
+
+    const validIds = ids.filter((id) => existingIds.has(id));
+
+    if (validIds.length === 0) {
+      return { count: 0, errors };
+    }
+
+    // Bulk soft delete
+    const result = await this.prismaService.withContext(
+      authContext,
+      async (prisma) => {
+        return prisma.income.updateMany({
+          where: {
+            id: { in: validIds },
+            householdId: authContext.householdId,
+          },
+          data: { deletedAt: new Date() },
+        });
+      },
+    );
+
+    return { count: result.count, errors };
+  }
+
+  async removeByFilters(
+    filters: IncomeFilters,
+    authContext: AuthContext,
+  ): Promise<{
+    count: number;
+    errors: Array<{ id: string; error: string }>;
+  }> {
+    // First find all incomes matching the filters
+    const incomes = await this.findAll(filters, authContext);
+    const ids = incomes.map((income) => income.id);
+
+    return this.removeMany(ids, authContext);
+  }
+
   async getIncomeStatistics(
     filters: IncomeFilters,
     authContext: AuthContext,
@@ -417,74 +564,105 @@ export class IncomesService {
         where.month = month;
       }
 
-      const incomes = await prisma.income.findMany({
-        where,
-        include: {
-          user: {
+      // Use database aggregation with groupBy to calculate totals per user
+      const [userAggregates, totalAggregates, monthlyDetails] =
+        await Promise.all([
+          // Group by user and aggregate their income
+          prisma.income.groupBy({
+            by: ['userId'],
+            where,
+            _sum: {
+              grossIncomeYen: true,
+              deductionYen: true,
+              allocatableYen: true,
+            },
+          }),
+
+          // Get overall totals for the period
+          prisma.income.aggregate({
+            where,
+            _sum: {
+              grossIncomeYen: true,
+              deductionYen: true,
+              allocatableYen: true,
+            },
+          }),
+
+          // Get monthly breakdown details for each user (only if we need month details)
+          prisma.income.findMany({
+            where,
+            select: {
+              userId: true,
+              month: true,
+              grossIncomeYen: true,
+              deductionYen: true,
+              allocatableYen: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+            orderBy: [{ userId: 'asc' }, { month: 'asc' }],
+          }),
+        ]);
+
+      // Build the user breakdown from aggregated data
+      const userBreakdown = await Promise.all(
+        userAggregates.map(async (userAggregate) => {
+          // Get user details
+          const user = await prisma.user.findUnique({
+            where: { id: userAggregate.userId },
             select: {
               id: true,
               name: true,
               email: true,
             },
-          },
-        },
-      });
-
-      const breakdown = incomes.reduce(
-        (acc, income) => {
-          const userKey = income.user.id;
-          if (!acc[userKey]) {
-            acc[userKey] = {
-              user: income.user,
-              grossIncome: 0,
-              deductions: 0,
-              allocatable: 0,
-              months: [],
-            };
-          }
-
-          acc[userKey].grossIncome += Number(income.grossIncomeYen);
-          acc[userKey].deductions += Number(income.deductionYen);
-          acc[userKey].allocatable += Number(income.allocatableYen);
-          (acc[userKey].months as any[]).push({
-            month: Number(income.month),
-            grossIncome: Number(income.grossIncomeYen),
-            deductions: Number(income.deductionYen),
-            allocatable: Number(income.allocatableYen),
           });
 
-          return acc;
-        },
-        {} as Record<string, Record<string, number>>,
-      );
+          const userGrossIncome =
+            Number(userAggregate._sum.grossIncomeYen) || 0;
+          const userDeductions = Number(userAggregate._sum.deductionYen) || 0;
+          const userAllocatable =
+            Number(userAggregate._sum.allocatableYen) || 0;
 
-      const totalAllocatable = Object.values(breakdown).reduce(
-        (sum: number, user: Record<string, number>) => sum + user.allocatable,
-        0,
+          // Get monthly details for this user
+          const userMonths = monthlyDetails
+            .filter((income) => income.userId === userAggregate.userId)
+            .map((income) => ({
+              month: Number(income.month),
+              grossIncome: Number(income.grossIncomeYen),
+              deductions: Number(income.deductionYen),
+              allocatable: Number(income.allocatableYen),
+            }));
+
+          const totalAllocatable =
+            Number(totalAggregates._sum.allocatableYen) || 0;
+
+          return {
+            user,
+            grossIncome: userGrossIncome,
+            deductions: userDeductions,
+            allocatable: userAllocatable,
+            percentage:
+              totalAllocatable > 0
+                ? (userAllocatable / totalAllocatable) * 100
+                : 0,
+            months: userMonths,
+          };
+        }),
       );
 
       return {
         year,
         month,
-        users: Object.values(breakdown).map((user: Record<string, number>) => ({
-          ...user,
-          percentage:
-            totalAllocatable > 0
-              ? (user.allocatable / totalAllocatable) * 100
-              : 0,
-        })),
+        users: userBreakdown,
         totals: {
-          grossIncome: Object.values(breakdown).reduce(
-            (sum: number, user: Record<string, number>) =>
-              sum + user.grossIncome,
-            0,
-          ),
-          deductions: Object.values(breakdown).reduce(
-            (sum: number, user: Record<string, number>) =>
-              sum + user.deductions,
-            0,
-          ),
-          allocatable: totalAllocatable,
+          grossIncome: Number(totalAggregates._sum.grossIncomeYen) || 0,
+          deductions: Number(totalAggregates._sum.deductionYen) || 0,
+          allocatable: Number(totalAggregates._sum.allocatableYen) || 0,
         },
       };
     });

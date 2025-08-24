@@ -16,7 +16,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import {
   CsvService,
-  AuthContext,
   FieldMapping,
   ImportPreview,
   ImportResult,
@@ -72,14 +71,6 @@ interface ImportIncomeDto {
 export class CsvController {
   constructor(private readonly csvService: CsvService) {}
 
-  private getAuthContext(user: AuthenticatedUser): AuthContext {
-    return {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-  }
-
   // Transaction Import/Export
   @Post('transactions/upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -123,7 +114,7 @@ export class CsvController {
     return this.csvService.previewTransactionImport(
       dto.csvData,
       dto.fieldMapping,
-      this.getAuthContext(user),
+      user,
     );
   }
 
@@ -136,7 +127,7 @@ export class CsvController {
     return this.csvService.importTransactions(
       dto.csvData,
       dto.fieldMapping,
-      this.getAuthContext(user),
+      user,
       dto.skipDuplicates ?? true,
     );
   }
@@ -147,7 +138,7 @@ export class CsvController {
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ): Promise<void> {
-    const authContext = this.getAuthContext(user);
+    const authContext = user;
     const filters: TransactionFilters = {
       dateFrom: query.dateFrom ? new Date(query.dateFrom) : undefined,
       dateTo: query.dateTo ? new Date(query.dateTo) : undefined,
@@ -240,7 +231,7 @@ export class CsvController {
     return this.csvService.importIncomes(
       dto.csvData,
       dto.fieldMapping,
-      this.getAuthContext(user),
+      user,
       dto.skipDuplicates ?? true,
     );
   }
@@ -251,7 +242,7 @@ export class CsvController {
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ): Promise<void> {
-    const authContext = this.getAuthContext(user);
+    const authContext = user;
     const filters: IncomeFilters = {
       userId: query.userId,
       year: query.year ? parseInt(query.year) : undefined,

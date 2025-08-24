@@ -21,27 +21,16 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole, User } from '@prisma/client';
-import {
-  AuthContext,
-  AuthenticatedUser,
-} from '../common/interfaces/auth-context.interface';
+import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  private getAuthContext(user: AuthenticatedUser): AuthContext {
-    return {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-  }
-
   @Get()
   async findAll(@CurrentUser() user: AuthenticatedUser): Promise<User[]> {
-    return this.usersService.findAll(this.getAuthContext(user));
+    return this.usersService.findAll(user);
   }
 
   @Get(':id')
@@ -49,7 +38,7 @@ export class UsersController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<User> {
-    return this.usersService.findOne(id, this.getAuthContext(user));
+    return this.usersService.findOne(id, user);
   }
 
   @Post()
@@ -59,7 +48,7 @@ export class UsersController {
     @Body() createUserDto: CreateUserDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<User> {
-    return this.usersService.create(createUserDto, this.getAuthContext(user));
+    return this.usersService.create(createUserDto, user);
   }
 
   @Put(':id')
@@ -68,11 +57,7 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<User> {
-    return this.usersService.update(
-      id,
-      updateUserDto,
-      this.getAuthContext(user),
-    );
+    return this.usersService.update(id, updateUserDto, user);
   }
 
   @Put(':id/password')
@@ -82,11 +67,7 @@ export class UsersController {
     @Body() changePasswordDto: ChangePasswordDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.usersService.changePassword(
-      id,
-      changePasswordDto,
-      this.getAuthContext(user),
-    );
+    await this.usersService.changePassword(id, changePasswordDto, user);
   }
 
   @Delete(':id')
@@ -96,6 +77,6 @@ export class UsersController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.usersService.remove(id, this.getAuthContext(user));
+    await this.usersService.remove(id, user);
   }
 }

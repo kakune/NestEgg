@@ -20,7 +20,6 @@ import type {
   CreateTransactionDto,
   UpdateTransactionDto,
 } from './transactions.service';
-import { AuthContext } from '../common/interfaces/auth-context.interface';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
@@ -49,21 +48,13 @@ interface TransactionQueryParams {
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
-  private getAuthContext(user: AuthenticatedUser): AuthContext {
-    return {
-      userId: user.userId,
-      householdId: user.householdId,
-      role: user.role,
-    };
-  }
-
   @Get()
   async findAll(
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TransactionWithDetails[]> {
     const filters = this.buildFilters(query);
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get('summary')
@@ -72,10 +63,7 @@ export class TransactionsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<any> {
     const filters = this.buildFilters(query);
-    return this.transactionsService.getTransactionSummary(
-      filters,
-      this.getAuthContext(user),
-    );
+    return this.transactionsService.getTransactionSummary(filters, user);
   }
 
   @Get('search')
@@ -90,7 +78,7 @@ export class TransactionsController {
     filters.sortBy = 'date';
     filters.sortOrder = 'desc';
 
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get('by-category/:categoryId')
@@ -102,7 +90,7 @@ export class TransactionsController {
     const filters = this.buildFilters(query);
     filters.categoryIds = [categoryId];
 
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get('by-actor/:actorId')
@@ -114,7 +102,7 @@ export class TransactionsController {
     const filters = this.buildFilters(query);
     filters.actorIds = [actorId];
 
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get('by-tag/:tag')
@@ -128,7 +116,7 @@ export class TransactionsController {
     filters.sortBy = 'date';
     filters.sortOrder = 'desc';
 
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get('recent')
@@ -142,7 +130,7 @@ export class TransactionsController {
       sortOrder: 'desc',
     };
 
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get('date-range/:from/:to')
@@ -158,7 +146,7 @@ export class TransactionsController {
     filters.sortBy = filters.sortBy || 'date';
     filters.sortOrder = filters.sortOrder || 'desc';
 
-    return this.transactionsService.findAll(filters, this.getAuthContext(user));
+    return this.transactionsService.findAll(filters, user);
   }
 
   @Get(':id')
@@ -166,7 +154,7 @@ export class TransactionsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TransactionWithDetails> {
-    return this.transactionsService.findOne(id, this.getAuthContext(user));
+    return this.transactionsService.findOne(id, user);
   }
 
   @Post()
@@ -175,10 +163,7 @@ export class TransactionsController {
     @Body() createTransactionDto: CreateTransactionDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Transaction> {
-    return this.transactionsService.create(
-      createTransactionDto,
-      this.getAuthContext(user),
-    );
+    return this.transactionsService.create(createTransactionDto, user);
   }
 
   @Post('bulk')
@@ -186,26 +171,15 @@ export class TransactionsController {
   async createBulk(
     @Body() createTransactionDtos: CreateTransactionDto[],
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Transaction[]> {
-    const authContext = this.getAuthContext(user);
-    const results: Transaction[] = [];
-    for (const dto of createTransactionDtos) {
-      try {
-        const transaction = await this.transactionsService.create(
-          dto,
-          authContext,
-        );
-        results.push(transaction);
-      } catch (error) {
-        // Log error but continue with other transactions
-        console.error(
-          `Failed to create transaction: ${dto.description}`,
-          error,
-        );
-      }
-    }
-
-    return results;
+  ): Promise<{
+    count: number;
+    errors: Array<{ dto: CreateTransactionDto; error: string }>;
+  }> {
+    const authContext = user;
+    return this.transactionsService.createMany(
+      createTransactionDtos,
+      authContext,
+    );
   }
 
   @Put(':id')
@@ -214,11 +188,7 @@ export class TransactionsController {
     @Body() updateTransactionDto: UpdateTransactionDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<Transaction> {
-    return this.transactionsService.update(
-      id,
-      updateTransactionDto,
-      this.getAuthContext(user),
-    );
+    return this.transactionsService.update(id, updateTransactionDto, user);
   }
 
   @Delete(':id')
@@ -227,25 +197,17 @@ export class TransactionsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.transactionsService.remove(id, this.getAuthContext(user));
+    await this.transactionsService.remove(id, user);
   }
 
   @Delete('bulk')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async removeBulk(
     @Body() ids: string[],
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<void> {
-    const authContext = this.getAuthContext(user);
-
-    for (const id of ids) {
-      try {
-        await this.transactionsService.remove(id, authContext);
-      } catch (error) {
-        // Log error but continue with other deletions
-        console.error(`Failed to delete transaction: ${id}`, error);
-      }
-    }
+  ): Promise<{ count: number; errors: Array<{ id: string; error: string }> }> {
+    const authContext = user;
+    return this.transactionsService.removeMany(ids, authContext);
   }
 
   private buildFilters(query: TransactionQueryParams): TransactionFilters {
