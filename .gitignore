@@ -59,6 +59,7 @@ ehthumbs.db
 /backend/generated/
 # Migration history can be debated, but for this project we will ignore it.
 /backend/prisma/migrations/
+/backend/coverage/
 
 # Misc
 # User-specified ignores

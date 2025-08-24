@@ -52,7 +52,7 @@ interface TransactionOrderBy {
 }
 
 // Type for transaction summary statistics
-interface TransactionSummary {
+export interface TransactionSummary {
   totalTransactions: number;
   totalIncome: number;
   totalExpenses: number;
