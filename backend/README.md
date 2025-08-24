@@ -1,98 +1,171 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# NestEgg Backend API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This document provides essential information for frontend developers to set up, use, and understand the NestEgg backend API.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Table of Contents
 
-## Description
+1.  [Getting Started](#getting-started)
+    -   [Prerequisites](#prerequisites)
+    -   [Installation](#installation)
+    -   [Environment Setup](#environment-setup)
+    -   [Running the Application](#running-the-application)
+2.  [Authentication](#authentication)
+3.  [API Overview](#api-overview)
+    -   [Global Prefix](#global-prefix)
+    -   [Core Resources](#core-resources)
+    -   [Common Query Parameters](#common-query-parameters)
+4.  [Error Handling](#error-handling)
+5.  [Key Workflows](#key-workflows)
+    -   [User and Household Setup](#user-and-household-setup)
+    -   [CSV Import](#csv-import)
+    -   [Monthly Settlement](#monthly-settlement)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 1. Getting Started
 
-```bash
-$ npm install
-```
+### Prerequisites
 
-## Compile and run the project
+-   Node.js (v20 or later)
+-   npm
+-   Docker and Docker Compose (for running the database)
 
-```bash
-# development
-$ npm run start
+### Installation
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+Install all project dependencies from the workspace root:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
+### Environment Setup
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+The backend requires a `.env` file for configuration. Create one by copying the example file:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cp .env.example .env
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+You must configure the following essential variables in your new `.env` file:
 
-## Resources
+-   `DATABASE_URL`: The connection string for the PostgreSQL database.
+    -   Example: `postgresql://user:password@localhost:5432/nestegg?schema=public`
+-   `JWT_SECRET`: A long, random, and secret string used for signing authentication tokens.
 
-Check out a few resources that may come in handy when working with NestJS:
+### Running the Application
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+To run the application in development mode with hot-reloading:
 
-## Support
+```bash
+# From the workspace root
+npm run start:dev --workspace=backend
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+The API server will be available at `http://localhost:3000`.
 
-## Stay in touch
+## 2. Authentication
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Most API endpoints are protected and require a JSON Web Token (JWT) for access.
 
-## License
+**Authentication Flow:**
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+1.  **Register or Login**: A new user registers a household or logs in.
+    -   `POST /api/v1/auth/register`
+    -   `POST /api/v1/auth/login`
+2.  **Receive Token**: The response from a successful login/registration will include an `accessToken`.
+3.  **Authorize Requests**: For all subsequent requests to protected endpoints, include the token in the `Authorization` header.
+    -   `Authorization: Bearer <your_accessToken>`
+
+**Public Endpoints:**
+The following endpoints do not require authentication:
+-   `/health`
+-   `/api/v1/auth/register`
+-   `/api/v1/auth/login`
+
+## 3. API Overview
+
+### Global Prefix
+
+All API routes are prefixed with `/api/v1`. For example, the users endpoint is accessible at `/api/v1/users`.
+
+### Core Resources
+
+The API is organized around RESTful resources:
+
+| Resource | Endpoint | Description |
+| :--- | :--- | :--- |
+| **Auth** | `/auth` | Handles user registration, login, logout, and token management. |
+| **Users** | `/users` | Manages household users (CRUD). |
+| **Actors** | `/actors` | Manages transaction actors (e.g., users, stores, institutions). |
+| **Categories** | `/categories` | Manages transaction categories, which can be hierarchical. |
+| **Transactions** | `/transactions` | Manages daily income and expense records. |
+| **Incomes** | `/incomes` | Manages monthly income records used for settlements. |
+| **Settlements** | `/settlements` | Manages the monthly settlement process. |
+| **CSV** | `/csv` | Provides endpoints for CSV data import and export. |
+
+### Common Query Parameters
+
+Many `GET` endpoints support filtering, sorting, and pagination via query parameters.
+
+-   **Filtering**: Most fields can be filtered (e.g., `?year=2024&type=EXPENSE`).
+-   **Sorting**: Use `sortBy` and `sortOrder`. Example: `?sortBy=date&sortOrder=desc`.
+-   **Pagination**: Use `limit` and `offset`. Example: `?limit=20&offset=40`.
+
+Please refer to the DTO files in `src/*/dto/` for available query parameters for each endpoint.
+
+## 4. Error Handling
+
+The API uses a standardized error response format. When an error occurs, the response body will contain:
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "A human-readable error message.",
+    "details": [
+      // Optional: For validation errors, an array of specific issues
+      {
+        "field": "fieldName",
+        "message": "Specific validation message for the field."
+      }
+    ],
+    "request_id": "uuid-for-tracing",
+    "timestamp": "iso-8601-timestamp",
+    "path": "/api/v1/requested/path"
+  }
+}
+```
+
+**Common Status Codes & Error Codes:**
+
+| Status | Code | Meaning |
+| :--- | :--- | :--- |
+| `400` | `VALIDATION_ERROR` | The request body or query parameters failed validation. |
+| `401` | `UNAUTHORIZED` | Missing or invalid authentication token. |
+| `403` | `FORBIDDEN` | Authenticated user lacks permission for the action. |
+| `404` | `RESOURCE_NOT_FOUND` | The requested resource does not exist. |
+| `409` | `DUPLICATE_RESOURCE` | A resource with the same unique key already exists. |
+| `500` | `INTERNAL_SERVER_ERROR` | An unexpected error occurred on the server. |
+
+## 5. Key Workflows
+
+### User and Household Setup
+
+1.  A new user registers by calling `POST /api/v1/auth/register`. This creates a new `Household` and an `admin` `User`.
+2.  The admin user can then invite and create other users within the same household by calling `POST /api/v1/users`.
+
+### CSV Import
+
+The API supports a three-step process for importing transactions or incomes from a CSV file to ensure data quality.
+
+1.  **Upload (`POST /api/v1/csv/transactions/upload`)**: Upload the raw CSV file. The API returns the file headers and sample data.
+2.  **Preview (`POST /api/v1/csv/transactions/preview`)**: Send the CSV data along with a field mapping configuration. The API validates the data and returns a preview of what will be imported, including any errors or potential duplicates.
+3.  **Import (`POST /api/v1/csv/transactions/import`)**: After confirming the preview, send the same payload to this endpoint to finalize the import.
+
+### Monthly Settlement
+
+The settlement process calculates and finalizes financial transfers between household members. This is typically an admin-only function.
+
+1.  **Run Settlement (`POST /api/v1/settlements/run`)**: An admin triggers the settlement calculation for a specific year and month. This creates a `DRAFT` settlement with proposed transfers.
+2.  **Review**: The frontend can fetch the draft settlement via `GET /api/v1/settlements/:id` to show the proposed transfers to the admin.
+3.  **Finalize (`POST /api/v1/settlements/:id/finalize`)**: Once the admin confirms the draft, they call this endpoint to finalize it. A finalized settlement is immutable.

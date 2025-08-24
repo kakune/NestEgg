@@ -750,33 +750,25 @@ describe('CategoriesService', () => {
     });
 
     describe('getAllDescendants', () => {
-      it.skip('should get all descendants recursively', async () => {
+      it('should get all descendants recursively', async () => {
         const child1 = { id: 'child-1', parentId: 'category-1' };
         const child2 = { id: 'child-2', parentId: 'category-1' };
         const grandchild1 = { id: 'grandchild-1', parentId: 'child-1' };
 
-        // Setup withContext mock for getAllDescendants calls
+        // Clear all previous mocks
+        jest.clearAllMocks();
+
+        // Mock the direct prisma.category.findMany calls used by getAllDescendants
         let findManyCallCount = 0;
-        (mockPrismaService.withContext as jest.Mock).mockImplementation(
-          (
-            context: AuthContext,
-            callback: (client: PrismaClient) => unknown,
-          ) => {
-            return callback({
-              category: {
-                findMany: jest.fn().mockImplementation(() => {
-                  findManyCallCount++;
-                  if (findManyCallCount === 1)
-                    return Promise.resolve([child1, child2]);
-                  if (findManyCallCount === 2)
-                    return Promise.resolve([grandchild1]);
-                  if (findManyCallCount === 3) return Promise.resolve([]);
-                  return Promise.resolve([]);
-                }),
-              },
-            } as unknown as PrismaClient);
-          },
-        );
+        (
+          mockPrismaService.prisma.category.findMany as jest.Mock
+        ).mockImplementation(() => {
+          findManyCallCount++;
+          if (findManyCallCount === 1) return Promise.resolve([child1, child2]);
+          if (findManyCallCount === 2) return Promise.resolve([grandchild1]);
+          if (findManyCallCount === 3) return Promise.resolve([]);
+          return Promise.resolve([]);
+        });
 
         const privateService = service as unknown as {
           getAllDescendants(

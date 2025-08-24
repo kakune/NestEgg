@@ -1,6 +1,6 @@
-import { Module } from '@nestjs/common';
-import { APP_PIPE, APP_GUARD } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Module, MiddlewareConsumer } from '@nestjs/common';
+import { APP_PIPE, APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from './config/config.module';
@@ -15,11 +15,28 @@ import { IncomesModule } from './incomes/incomes.module';
 import { CsvModule } from './csv/csv.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { ValidationPipe } from './common/pipes/validation.pipe';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { CustomThrottlerGuard } from './common/guards/throttle.guard';
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 3600, // 1 hour
+        limit: 1000, // requests per hour per IP
+      },
+      {
+        name: 'strict',
+        ttl: 60, // 1 minute
+        limit: 20, // requests per minute for write operations
+      },
+    ]),
     HealthModule,
     AuthModule,
     UsersModule,
@@ -35,21 +52,28 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     AppService,
     {
       provide: APP_PIPE,
-      useFactory: () =>
-        new ValidationPipe({
-          whitelist: true,
-          forbidNonWhitelisted: true,
-          transform: true,
-          validateCustomDecorators: true,
-          transformOptions: {
-            enableImplicitConversion: true,
-          },
-        }),
+      useClass: ValidationPipe,
     },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
+    },
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
