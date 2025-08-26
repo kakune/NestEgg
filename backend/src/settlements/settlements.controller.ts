@@ -74,11 +74,4 @@ export class SettlementsController {
   ): Promise<SettlementWithLines> {
     return this.settlementsService.finalizeSettlement(id, user);
   }
-
-  @Get('month/:year/:month')
-  findByMonth(): Promise<SettlementWithLines | null> {
-    // This will be implemented to find settlement by specific month
-    // For now, return null
-    return Promise.resolve(null);
-  }
 }

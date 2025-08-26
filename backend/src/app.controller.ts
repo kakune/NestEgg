@@ -11,10 +11,4 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
-
-  @Public()
-  @Get('users')
-  getUsers() {
-    return this.appService.getUsers();
-  }
 }

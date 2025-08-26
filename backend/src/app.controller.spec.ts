@@ -21,13 +21,4 @@ describe('AppController', () => {
       );
     });
   });
-
-  describe('users', () => {
-    it('should return mock users array', () => {
-      const result = appController.getUsers();
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBe(3);
-      expect(result[0]).toEqual({ id: 1, name: 'Admin User' });
-    });
-  });
 });
