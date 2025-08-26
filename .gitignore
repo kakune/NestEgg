@@ -10,9 +10,21 @@
 /frontend/dist
 /build
 /out
+
+# Next.js
 /.next/
+/frontend/.next/
+/frontend/out/
+
+# Vite
 /.vite/
 /.vite-cache/
+
+# TypeScript
+*.tsbuildinfo
+/frontend/*.tsbuildinfo
+next-env.d.ts
+/frontend/next-env.d.ts
 
 # Logs
 logs
@@ -53,13 +65,19 @@ ehthumbs.db
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/coverage/
+/frontend/coverage/
+/backend/coverage/
+
+# Storybook build outputs
+storybook-static
+/frontend/storybook-static
 
 # Prisma
 # The Prisma client is generated on install, so we don't need to track it.
 /backend/generated/
 # Migration history can be debated, but for this project we will ignore it.
 /backend/prisma/migrations/
-/backend/coverage/
 
 # Misc
 # User-specified ignores
