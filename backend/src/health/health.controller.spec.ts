@@ -4,6 +4,7 @@ import {
   MemoryHealthIndicator,
   DiskHealthIndicator,
   HealthCheckResult,
+  HealthIndicatorStatus,
 } from '@nestjs/terminus';
 import { HealthController } from './health.controller';
 
@@ -130,13 +131,25 @@ describe('HealthController', () => {
     it('should check memory heap with correct parameters', async () => {
       const mockMemoryResult = { memory_heap: { status: 'up' } };
       mockMemoryHealthIndicator.checkHeap.mockReturnValue(mockMemoryResult);
-      mockHealthCheckService.check.mockImplementation(
-        async (checks: HealthCheckFunction[]) => {
-          // Execute the first check function (memory heap)
-          const heapCheck = checks[0];
-          return await heapCheck();
-        },
-      );
+      mockMemoryHealthIndicator.checkRSS.mockReturnValue({
+        memory_rss: { status: 'up' },
+      });
+      mockDiskHealthIndicator.checkStorage.mockReturnValue({
+        storage: { status: 'up' },
+      });
+
+      mockHealthCheckService.check.mockImplementation(async (checks) => {
+        // Execute all check functions to trigger the actual method calls
+        for (const checkFn of checks) {
+          await checkFn();
+        }
+        return {
+          status: 'ok' as const,
+          info: { memory_heap: { status: 'up' } },
+          error: {},
+          details: { memory_heap: { status: 'up' } },
+        };
+      });
 
       await controller.detailedCheck();
 
@@ -148,14 +161,26 @@ describe('HealthController', () => {
 
     it('should check memory RSS with correct parameters', async () => {
       const mockMemoryResult = { memory_rss: { status: 'up' } };
+      mockMemoryHealthIndicator.checkHeap.mockReturnValue({
+        memory_heap: { status: 'up' },
+      });
       mockMemoryHealthIndicator.checkRSS.mockReturnValue(mockMemoryResult);
-      mockHealthCheckService.check.mockImplementation(
-        async (checks: HealthCheckFunction[]) => {
-          // Execute the second check function (memory RSS)
-          const rssCheck = checks[1];
-          return await rssCheck();
-        },
-      );
+      mockDiskHealthIndicator.checkStorage.mockReturnValue({
+        storage: { status: 'up' },
+      });
+
+      mockHealthCheckService.check.mockImplementation(async (checks) => {
+        // Execute all check functions to trigger the actual method calls
+        for (const checkFn of checks) {
+          await checkFn();
+        }
+        return {
+          status: 'ok' as const,
+          info: { memory_rss: { status: 'up' } },
+          error: {},
+          details: { memory_rss: { status: 'up' } },
+        };
+      });
 
       await controller.detailedCheck();
 
@@ -167,14 +192,26 @@ describe('HealthController', () => {
 
     it('should check disk storage with correct parameters', async () => {
       const mockDiskResult = { storage: { status: 'up' } };
+      mockMemoryHealthIndicator.checkHeap.mockReturnValue({
+        memory_heap: { status: 'up' },
+      });
+      mockMemoryHealthIndicator.checkRSS.mockReturnValue({
+        memory_rss: { status: 'up' },
+      });
       mockDiskHealthIndicator.checkStorage.mockReturnValue(mockDiskResult);
-      mockHealthCheckService.check.mockImplementation(
-        async (checks: HealthCheckFunction[]) => {
-          // Execute the third check function (disk storage)
-          const storageCheck = checks[2];
-          return await storageCheck();
-        },
-      );
+
+      mockHealthCheckService.check.mockImplementation(async (checks) => {
+        // Execute all check functions to trigger the actual method calls
+        for (const checkFn of checks) {
+          await checkFn();
+        }
+        return {
+          status: 'ok' as const,
+          info: { storage: { status: 'up' } },
+          error: {},
+          details: { storage: { status: 'up' } },
+        };
+      });
 
       await controller.detailedCheck();
 
@@ -295,28 +332,30 @@ describe('HealthController', () => {
       });
 
       mockHealthCheckService.check.mockImplementation(async (checks) => {
-        const results = [];
+        const results: Record<
+          string,
+          { status: HealthIndicatorStatus; [key: string]: any }
+        > = {};
         for (const check of checks) {
           try {
-            results.push(await check());
+            const result = await check();
+            Object.assign(results, result);
           } catch (error) {
             // Health check service should handle individual failures
-            results.push({
-              failed_check: {
-                status: 'down',
-                message: (error as Error).message,
-              },
-            });
+            results.failed_check = {
+              status: 'down' as HealthIndicatorStatus,
+              message: (error as Error).message,
+            };
           }
         }
 
         return {
-          status: 'error',
+          status: 'error' as const,
           info: {},
           error: {
             failed_check: { status: 'down', message: 'Heap check failed' },
           },
-          details: results.reduce((acc, curr) => ({ ...acc, ...curr }), {}),
+          details: results,
         };
       });
 
@@ -332,8 +371,8 @@ describe('HealthController', () => {
       const expectedRSSThreshold = 150 * 1024 * 1024; // 150MB
 
       mockHealthCheckService.check.mockImplementation(async (checks) => {
-        await checks[0](); // heap check
-        await checks[1](); // rss check
+        await checks[0]?.(); // heap check
+        await checks[1]?.(); // rss check
         return { status: 'ok', info: {}, error: {}, details: {} };
       });
 
@@ -358,7 +397,7 @@ describe('HealthController', () => {
       };
 
       mockHealthCheckService.check.mockImplementation(async (checks) => {
-        await checks[2](); // storage check
+        await checks[2]?.(); // storage check
         return { status: 'ok', info: {}, error: {}, details: {} };
       });
 

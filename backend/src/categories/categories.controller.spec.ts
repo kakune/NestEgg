@@ -3,7 +3,7 @@ import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '@prisma/client';
+import { UserRole, TransactionType } from '@prisma/client';
 
 describe('CategoriesController', () => {
   let controller: CategoriesController;
@@ -31,7 +31,7 @@ describe('CategoriesController', () => {
     parent: null,
   };
 
-  const mockCategoriesService = {
+  let mockCategoriesService = {
     findAll: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn(),
@@ -63,7 +63,7 @@ describe('CategoriesController', () => {
       .compile();
 
     controller = module.get<CategoriesController>(CategoriesController);
-    categoriesService = module.get<CategoriesService>(CategoriesService);
+    mockCategoriesService = module.get(CategoriesService);
 
     // Reset all mocks
     jest.clearAllMocks();
@@ -139,7 +139,7 @@ describe('CategoriesController', () => {
       expect(mockCategoriesService.findOne).toHaveBeenCalledWith('test-id', {
         userId: 'user-1',
         householdId: 'household-1',
-        role: 'admin',
+        role: UserRole.admin,
       });
     });
   });
@@ -199,7 +199,7 @@ describe('CategoriesController', () => {
   describe('create', () => {
     const createCategoryDto = {
       name: 'New Category',
-      description: 'New Description',
+      type: TransactionType.EXPENSE,
     };
 
     it('should create a new category', async () => {
@@ -242,7 +242,7 @@ describe('CategoriesController', () => {
     });
 
     it('should pass correct auth context for different user roles', async () => {
-      const memberUser = { ...mockUser, role: 'member' };
+      const memberUser = { ...mockUser, role: UserRole.member };
       mockCategoriesService.create.mockResolvedValue(mockCategory);
 
       await controller.create(createCategoryDto, memberUser);
@@ -252,7 +252,7 @@ describe('CategoriesController', () => {
         {
           userId: memberUser.userId,
           householdId: memberUser.householdId,
-          role: 'member',
+          role: UserRole.member,
         },
       );
     });
@@ -346,7 +346,7 @@ describe('CategoriesController', () => {
         {
           userId: 'user-1',
           householdId: 'household-1',
-          role: 'admin',
+          role: UserRole.admin,
         },
       );
     });
@@ -376,7 +376,7 @@ describe('CategoriesController', () => {
         {
           userId: 'user-1',
           householdId: 'household-1',
-          role: 'admin',
+          role: UserRole.admin,
         },
       );
     });
@@ -396,13 +396,13 @@ describe('CategoriesController', () => {
       const testUser = {
         userId: 'test-user',
         householdId: 'test-household',
-        role: 'member',
+        role: UserRole.member,
       };
 
       const expectedAuthContext = {
         userId: 'test-user',
         householdId: 'test-household',
-        role: 'member',
+        role: UserRole.member,
       };
 
       // Mock all service methods
@@ -421,7 +421,10 @@ describe('CategoriesController', () => {
       await controller.findOne('test-id', testUser);
       await controller.getCategoryPath('test-id', testUser);
       await controller.getCategoryStats('test-id', testUser);
-      await controller.create({ name: 'Test' }, testUser);
+      await controller.create(
+        { name: 'Test', type: TransactionType.EXPENSE },
+        testUser,
+      );
       await controller.update('test-id', { name: 'Updated' }, testUser);
       await controller.remove('test-id', testUser);
 
@@ -445,7 +448,7 @@ describe('CategoriesController', () => {
         expectedAuthContext,
       );
       expect(mockCategoriesService.create).toHaveBeenCalledWith(
-        { name: 'Test' },
+        { name: 'Test', type: TransactionType.EXPENSE },
         expectedAuthContext,
       );
       expect(mockCategoriesService.update).toHaveBeenCalledWith(
@@ -484,7 +487,10 @@ describe('CategoriesController', () => {
       mockCategoriesService.create.mockRejectedValue(serviceError);
 
       await expect(
-        controller.create({ name: 'Test' }, mockUser),
+        controller.create(
+          { name: 'Test', type: TransactionType.EXPENSE },
+          mockUser,
+        ),
       ).rejects.toThrow('Validation Error');
     });
 

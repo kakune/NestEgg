@@ -11,7 +11,7 @@ import {
 export class CreatePersonalAccessTokenDto {
   @IsString()
   @MaxLength(100)
-  name: string;
+  name!: string;
 
   @IsOptional()
   @IsArray()

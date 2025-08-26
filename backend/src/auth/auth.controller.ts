@@ -13,7 +13,7 @@ import { AuthService, AuthResponse } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CreatePersonalAccessTokenDto } from './dto/create-personal-access-token.dto';

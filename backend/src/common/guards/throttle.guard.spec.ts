@@ -41,8 +41,8 @@ describe('CustomThrottlerGuard', () => {
       ip: '192.168.1.1',
       socket: {
         remoteAddress: '192.168.1.1',
-      } as Partial<typeof mockRequest.socket>,
-    };
+      },
+    } as Partial<Request>;
 
     mockResponse = {
       setHeader: jest.fn(),
@@ -57,58 +57,58 @@ describe('CustomThrottlerGuard', () => {
   });
 
   describe('getTracker', () => {
-    it('should return IP address when no user is present', () => {
-      const tracker = guard.getTracker(mockRequest as Request);
+    it('should return IP address when no user is present', async () => {
+      const tracker = await guard.getTracker(mockRequest as Request);
       expect(tracker).toBe('192.168.1.1');
     });
 
-    it('should return IP and user ID when authenticated user is present', () => {
+    it('should return IP and user ID when authenticated user is present', async () => {
       const requestWithUser: Partial<Request> = {
         ...mockRequest,
         user: { id: 'user-123' },
       };
 
-      const tracker = guard.getTracker(requestWithUser as Request);
+      const tracker = await guard.getTracker(requestWithUser as Request);
       expect(tracker).toBe('192.168.1.1:user-123');
     });
 
-    it('should use socket.remoteAddress when ip is not available', () => {
-      const requestWithoutIp: Partial<Request> = {
+    it('should use socket.remoteAddress when ip is not available', async () => {
+      const requestWithoutIp = {
         socket: {
           remoteAddress: '10.0.0.1',
-        } as Partial<typeof mockRequest.socket>,
+        },
         user: undefined,
-      };
+      } as unknown as Request;
 
-      const tracker = guard.getTracker(requestWithoutIp as Request);
+      const tracker = await guard.getTracker(requestWithoutIp);
       expect(tracker).toBe('10.0.0.1');
     });
 
-    it('should return "unknown" when no IP information is available', () => {
-      const requestWithoutIp: Partial<Request> = {
-        socket: {} as Partial<typeof mockRequest.socket>,
+    it('should return "unknown" when no IP information is available', async () => {
+      const requestWithoutIp = {
+        socket: {},
         user: undefined,
-      };
+      } as unknown as Request;
 
-      const tracker = guard.getTracker(requestWithoutIp as Request);
+      const tracker = await guard.getTracker(requestWithoutIp);
       expect(tracker).toBe('unknown');
     });
 
-    it('should combine socket.remoteAddress and user ID', () => {
-      const requestWithSocketAndUser: Partial<Request> = {
+    it('should combine socket.remoteAddress and user ID', async () => {
+      const requestWithSocketAndUser = {
         socket: {
           remoteAddress: '172.16.0.1',
-        } as Partial<typeof mockRequest.socket>,
+        },
         user: { id: 'user-456' },
-      };
+      } as unknown as Request;
 
-      const tracker = guard.getTracker(requestWithSocketAndUser as Request);
+      const tracker = await guard.getTracker(requestWithSocketAndUser);
       expect(tracker).toBe('172.16.0.1:user-456');
     });
   });
 
   describe('throwThrottlingException', () => {
-    it('should set rate limit headers and throw ThrottlerException', () => {
+    it('should set rate limit headers and throw ThrottlerException', async () => {
       const throttlerLimitDetail = {
         limit: 10,
         ttl: 60,
@@ -118,12 +118,12 @@ describe('CustomThrottlerGuard', () => {
       const mockNow = 1609459200000; // January 1, 2021
       jest.spyOn(Date, 'now').mockReturnValue(mockNow);
 
-      expect(() => {
-        guard.throwThrottlingException(
+      await expect(async () => {
+        await guard.throwThrottlingException(
           mockExecutionContext as ExecutionContext,
           throttlerLimitDetail,
         );
-      }).toThrow(ThrottlerException);
+      }).rejects.toThrow(ThrottlerException);
 
       const expectedResetTime = mockNow + throttlerLimitDetail.ttl * 1000;
 
@@ -145,7 +145,7 @@ describe('CustomThrottlerGuard', () => {
       jest.restoreAllMocks();
     });
 
-    it('should throw ThrottlerException with correct error details', () => {
+    it('should throw ThrottlerException with correct error details', async () => {
       const throttlerLimitDetail = {
         limit: 5,
         ttl: 30,
@@ -154,12 +154,12 @@ describe('CustomThrottlerGuard', () => {
       const mockNow = 1609459200000;
       jest.spyOn(Date, 'now').mockReturnValue(mockNow);
 
-      expect(() => {
-        guard.throwThrottlingException(
+      await expect(async () => {
+        await guard.throwThrottlingException(
           mockExecutionContext as ExecutionContext,
           throttlerLimitDetail,
         );
-      }).toThrow(ThrottlerException);
+      }).rejects.toThrow(ThrottlerException);
 
       jest.restoreAllMocks();
     });
@@ -178,18 +178,24 @@ describe('CustomThrottlerGuard', () => {
         )
         .mockResolvedValue(true);
 
-      const result = await guard.handleRequest(
-        mockExecutionContext as ExecutionContext,
+      const result = await guard.handleRequest({
+        context: mockExecutionContext as ExecutionContext,
         limit,
         ttl,
-      );
+      });
 
       expect(result).toBe(true);
-      expect(parentHandleRequestSpy).toHaveBeenCalledWith(
-        mockExecutionContext,
+      expect(parentHandleRequestSpy).toHaveBeenCalledWith({
+        context: mockExecutionContext,
         limit,
         ttl,
-      );
+        throttler: { name: 'default', limit, ttl },
+        blockDuration: 0,
+        getTracker: expect.any(Function) as (
+          req: Record<string, unknown>,
+        ) => string,
+        generateKey: expect.any(Function) as () => string,
+      });
 
       // Verify headers are set
       expect(mockResponse.setHeader).toHaveBeenCalledWith(
@@ -222,11 +228,11 @@ describe('CustomThrottlerGuard', () => {
         )
         .mockResolvedValue(true);
 
-      await guard.handleRequest(
-        mockExecutionContext as ExecutionContext,
+      await guard.handleRequest({
+        context: mockExecutionContext as ExecutionContext,
         limit,
         ttl,
-      );
+      });
 
       const expectedResetTime = Math.ceil((mockNow + ttl * 1000) / 1000);
 
@@ -250,18 +256,24 @@ describe('CustomThrottlerGuard', () => {
         )
         .mockResolvedValue(false);
 
-      const result = await guard.handleRequest(
-        mockExecutionContext as ExecutionContext,
+      const result = await guard.handleRequest({
+        context: mockExecutionContext as ExecutionContext,
         limit,
         ttl,
-      );
+      });
 
       expect(result).toBe(false);
-      expect(parentHandleRequestSpy).toHaveBeenCalledWith(
-        mockExecutionContext,
+      expect(parentHandleRequestSpy).toHaveBeenCalledWith({
+        context: mockExecutionContext,
         limit,
         ttl,
-      );
+        throttler: { name: 'default', limit, ttl },
+        blockDuration: 0,
+        getTracker: expect.any(Function) as (
+          req: Record<string, unknown>,
+        ) => string,
+        generateKey: expect.any(Function) as () => string,
+      });
 
       // Headers should still be set even when request is throttled
       expect(mockResponse.setHeader).toHaveBeenCalledWith(
@@ -293,11 +305,11 @@ describe('CustomThrottlerGuard', () => {
       for (const testCase of testCases) {
         (mockResponse.setHeader as jest.Mock).mockClear();
 
-        await guard.handleRequest(
-          mockExecutionContext as ExecutionContext,
-          testCase.limit,
-          60,
-        );
+        await guard.handleRequest({
+          context: mockExecutionContext as ExecutionContext,
+          limit: testCase.limit,
+          ttl: 60,
+        });
 
         expect(mockResponse.setHeader).toHaveBeenCalledWith(
           'X-RateLimit-Remaining',

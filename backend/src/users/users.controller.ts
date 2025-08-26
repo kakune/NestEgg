@@ -15,13 +15,14 @@ import type {
   CreateUserDto,
   UpdateUserDto,
   ChangePasswordDto,
+  PublicUser,
 } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { UserRole, User } from '@prisma/client';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import { UserRole } from '@prisma/client';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,7 +30,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  async findAll(@CurrentUser() user: AuthenticatedUser): Promise<User[]> {
+  async findAll(@CurrentUser() user: AuthenticatedUser): Promise<PublicUser[]> {
     return this.usersService.findAll(user);
   }
 
@@ -37,7 +38,7 @@ export class UsersController {
   async findOne(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<User> {
+  ): Promise<PublicUser> {
     return this.usersService.findOne(id, user);
   }
 
@@ -47,7 +48,7 @@ export class UsersController {
   async create(
     @Body() createUserDto: CreateUserDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<User> {
+  ): Promise<PublicUser> {
     return this.usersService.create(createUserDto, user);
   }
 
@@ -56,7 +57,7 @@ export class UsersController {
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<User> {
+  ): Promise<PublicUser> {
     return this.usersService.update(id, updateUserDto, user);
   }
 

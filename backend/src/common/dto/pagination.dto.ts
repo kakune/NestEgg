@@ -85,6 +85,10 @@ export function buildCursorCondition(
     }
 
     // Handle different field types
+    if (!value) {
+      return undefined;
+    }
+
     let parsedValue: string | number | Date = value;
     if (
       field === 'created_at' ||

@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { mockDeep, MockProxy, mockReset } from 'jest-mock-extended';
-import { SettlementsService, YearMonth } from './settlements.service';
+import {
+  SettlementsService,
+  YearMonth,
+  SettlementWithLines,
+} from './settlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   SettlementStatus,
@@ -64,10 +68,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(existingSettlement),
@@ -147,10 +151,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -183,9 +187,9 @@ describe('SettlementsService (Phase 4.1)', () => {
       // user1 paid 10000, should pay 6000 (60% of 10000) → overpaid by 4000
       // user2 paid 0, should pay 4000 (40% of 10000) → underpaid by 4000
       // user2 should pay user1: 4000
-      expect(result.lines[0].fromUserId).toBe('user2');
-      expect(result.lines[0].toUserId).toBe('user1');
-      expect(result.lines[0].amountYen).toBe(2000); // The mocked result
+      expect(result.lines[0]!.fromUserId).toBe('user2');
+      expect(result.lines[0]!.toUserId).toBe('user1');
+      expect(Number(result.lines[0]!.amountYen)).toBe(2000); // The mocked result
     });
 
     it('should handle zero income with EXCLUDE policy', async () => {
@@ -246,10 +250,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -344,10 +348,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -376,9 +380,9 @@ describe('SettlementsService (Phase 4.1)', () => {
       // With MIN_SHARE policy, expenses are split equally
       // user1 paid 10000, should pay 5000 → overpaid by 5000
       // user2 paid 0, should pay 5000 → underpaid by 5000
-      expect(result.lines[0].fromUserId).toBe('user2');
-      expect(result.lines[0].toUserId).toBe('user1');
-      expect(result.lines[0].amountYen).toBe(5000);
+      expect(result.lines[0]!.fromUserId).toBe('user2');
+      expect(result.lines[0]!.toUserId).toBe('user1');
+      expect(Number(result.lines[0]!.amountYen)).toBe(5000);
     });
 
     it('should apply different rounding policies correctly', async () => {
@@ -455,10 +459,10 @@ describe('SettlementsService (Phase 4.1)', () => {
         };
 
         mockPrismaService.withContext.mockImplementation(
-          (
+          <T>(
             authContext: AuthContext,
-            callback: (prisma: any) => Promise<MockSettlement>,
-          ) =>
+            callback: (prisma: any) => Promise<T>,
+          ): Promise<T> =>
             callback({
               settlement: {
                 findUnique: jest.fn().mockResolvedValue(null),
@@ -547,10 +551,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -576,14 +580,14 @@ describe('SettlementsService (Phase 4.1)', () => {
       );
 
       expect(result.lines).toHaveLength(1);
-      expect(result.lines[0].fromUserId).toBe('user2');
-      expect(result.lines[0].toUserId).toBe('user1');
-      expect(result.lines[0].amountYen).toBe(5000); // user2 owes user1 for personal expense
+      expect(result.lines[0]!.fromUserId).toBe('user2');
+      expect(result.lines[0]!.toUserId).toBe('user1');
+      expect(Number(result.lines[0]!.amountYen)).toBe(5000); // user2 owes user1 for personal expense
     });
 
     it('should use default policy when no policy exists', async () => {
-      const mockTransactions = [];
-      const mockIncomes = [];
+      const mockTransactions: any[] = [];
+      const mockIncomes: any[] = [];
 
       const createdSettlement = {
         id: 'settlement1',
@@ -595,10 +599,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -728,10 +732,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -793,10 +797,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findFirst: jest.fn().mockResolvedValue(draftSettlement),
@@ -838,10 +842,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findFirst: jest.fn().mockResolvedValue(finalizedSettlement),
@@ -856,10 +860,10 @@ describe('SettlementsService (Phase 4.1)', () => {
 
     it('should throw NotFoundException for non-existent settlement', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findFirst: jest.fn().mockResolvedValue(null),
@@ -885,10 +889,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findFirst: jest.fn().mockResolvedValue(mockSettlement),
@@ -905,10 +909,10 @@ describe('SettlementsService (Phase 4.1)', () => {
 
     it('should throw NotFoundException for non-existent settlement', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findFirst: jest.fn().mockResolvedValue(null),
@@ -924,7 +928,7 @@ describe('SettlementsService (Phase 4.1)', () => {
 
   describe('findAll', () => {
     it('should return all settlements for household', async () => {
-      const mockSettlements: MockSettlement[] = [
+      const mockSettlements = [
         {
           id: 'settlement1',
           householdId: 'household1',
@@ -941,13 +945,13 @@ describe('SettlementsService (Phase 4.1)', () => {
           status: SettlementStatus.FINALIZED,
           lines: [],
         },
-      ];
+      ] as unknown as SettlementWithLines[];
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findMany: jest.fn().mockResolvedValue(mockSettlements),
@@ -958,16 +962,16 @@ describe('SettlementsService (Phase 4.1)', () => {
       const result = await service.findAll(mockAuthContext);
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('settlement1');
-      expect(result[1].id).toBe('settlement2');
+      expect(result[0]!.id).toBe('settlement1');
+      expect(result[1]!.id).toBe('settlement2');
     });
 
     it('should return empty array when no settlements exist', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findMany: jest.fn().mockResolvedValue([]),
@@ -1030,10 +1034,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -1062,7 +1066,7 @@ describe('SettlementsService (Phase 4.1)', () => {
     });
 
     it('should handle month with no transactions', async () => {
-      const mockTransactions = [];
+      const mockTransactions: any[] = [];
       const mockIncomes = [
         {
           id: 'income1',
@@ -1092,10 +1096,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),
@@ -1143,7 +1147,7 @@ describe('SettlementsService (Phase 4.1)', () => {
         },
       ];
 
-      const mockIncomes = [];
+      const mockIncomes: any[] = [];
 
       const mockPolicy = {
         householdId: 'household1',
@@ -1161,10 +1165,10 @@ describe('SettlementsService (Phase 4.1)', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
+        <T>(
           authContext: AuthContext,
-          callback: (prisma: any) => Promise<MockSettlement>,
-        ) =>
+          callback: (prisma: any) => Promise<T>,
+        ): Promise<T> =>
           callback({
             settlement: {
               findUnique: jest.fn().mockResolvedValue(null),

@@ -15,29 +15,29 @@ import { TransactionType } from '@prisma/client';
 
 export class CreateTransactionDto {
   @IsEnum(TransactionType, { message: 'Type must be either EXPENSE or INCOME' })
-  type: TransactionType;
+  type!: TransactionType;
 
   @IsInt({ message: 'Amount must be an integer' })
   @Min(1, { message: 'Amount must be a positive integer' })
   @Type(() => Number)
-  amount_yen: number;
+  amount_yen!: number;
 
   @IsDateString(
     {},
     { message: 'occurred_on must be a valid date string (YYYY-MM-DD)' },
   )
-  occurred_on: string;
+  occurred_on!: string;
 
   @IsUUID('4', { message: 'category_id must be a valid UUID' })
-  category_id: string;
+  category_id!: string;
 
   @IsUUID('4', { message: 'payer_actor_id must be a valid UUID' })
-  payer_actor_id: string;
+  payer_actor_id!: string;
 
   @IsEnum(['HOUSEHOLD', 'USER'], {
     message: 'should_pay must be either HOUSEHOLD or USER',
   })
-  should_pay: 'HOUSEHOLD' | 'USER';
+  should_pay!: 'HOUSEHOLD' | 'USER';
 
   @ValidateIf((o: CreateTransactionDto) => o.should_pay === 'USER')
   @IsUUID('4', {

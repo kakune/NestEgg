@@ -16,7 +16,7 @@ interface MockSettlementWorkflow {
   id: string;
   householdId: string;
   year: number;
-  month: number;
+  month: Date;
   status: SettlementStatus;
   createdAt: Date;
   finalizedAt?: Date;
@@ -53,7 +53,7 @@ interface MockIncomeWorkflow {
   userId: string;
   householdId: string;
   year: number;
-  month: number;
+  month: Date;
   allocatableYen: number;
   deletedAt: Date | null;
   user: { id: string; name: string };
@@ -193,7 +193,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'user1',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'user1', name: 'User 1' },
@@ -203,7 +203,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'user2',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 200000,
           deletedAt: null,
           user: { id: 'user2', name: 'User 2' },
@@ -221,7 +221,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [
@@ -310,7 +310,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(2024, 2, 20),
         lines: [
@@ -330,7 +330,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement2',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [
@@ -368,7 +368,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'user1',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'user1', name: 'User 1' },
@@ -378,7 +378,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'user2',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 200000,
           deletedAt: null,
           user: { id: 'user2', name: 'User 2' },
@@ -424,7 +424,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
 
       expect(result.id).toBe('settlement2'); // New settlement created
       expect(result.status).toBe(SettlementStatus.DRAFT);
-      expect(result.lines[0].amountYen).toBe(6000); // Updated amount
+      expect(Number(result.lines[0]!.amountYen)).toBe(6000); // Updated amount
     });
 
     it('should maintain settlement status integrity throughout lifecycle', async () => {
@@ -433,7 +433,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           id: 'settlement1',
           householdId: 'household1',
           year: 2024,
-          month: 1,
+          month: new Date(2024, 0), // January 2024
           status: SettlementStatus.FINALIZED,
           finalizedAt: new Date(2024, 1, 1),
           finalizedBy: 'admin1',
@@ -443,7 +443,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           id: 'settlement2',
           householdId: 'household1',
           year: 2024,
-          month: 2,
+          month: new Date(2024, 1), // February 2024
           status: SettlementStatus.DRAFT,
           lines: [],
         },
@@ -451,7 +451,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           id: 'settlement3',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           status: SettlementStatus.DRAFT,
           lines: [],
         },
@@ -521,7 +521,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: balance.userId,
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: Math.abs(balance.balance) * 10, // Income proportional to balance
           deletedAt: null,
           user: { id: balance.userId, name: `User ${index + 1}` },
@@ -539,7 +539,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [
@@ -627,9 +627,9 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
       expect(totalOutgoing).toBe(totalIncoming); // Conservation of money
 
       // Verify transfers start with highest imbalances
-      expect(result.lines[0].fromUserId).toBe('user1'); // Highest payer
-      expect(result.lines[0].toUserId).toBe('user4'); // Highest receiver
-      expect(result.lines[0].amountYen).toBe(10000);
+      expect(result.lines[0]!.fromUserId).toBe('user1'); // Highest payer
+      expect(result.lines[0]!.toUserId).toBe('user4'); // Highest receiver
+      expect(Number(result.lines[0]!.amountYen)).toBe(10000);
     });
 
     it('should handle edge case with zero balances after netting', async () => {
@@ -668,7 +668,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'user1',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'user1', name: 'User 1' },
@@ -678,7 +678,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'user2',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'user2', name: 'User 2' },
@@ -695,7 +695,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [], // No transfers needed - perfect balance
@@ -786,7 +786,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'userA',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'userA', name: 'User A' },
@@ -796,7 +796,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'userB',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'userB', name: 'User B' },
@@ -806,7 +806,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           userId: 'userC',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           allocatableYen: 300000,
           deletedAt: null,
           user: { id: 'userC', name: 'User C' },
@@ -823,7 +823,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [
@@ -892,7 +892,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [],
@@ -941,7 +941,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.FINALIZED,
         createdAt: new Date(),
         finalizedAt: new Date(2024, 2, 20),
@@ -975,7 +975,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.FINALIZED,
         createdAt: new Date(),
         finalizedAt: new Date(),
@@ -1031,7 +1031,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           id: 'settlement1',
           householdId: 'household1',
           year: 2024,
-          month: 1,
+          month: new Date(2024, 0), // January 2024
           status: SettlementStatus.FINALIZED,
           createdAt: new Date(2024, 1, 1),
           finalizedAt: new Date(2024, 1, 5),
@@ -1042,7 +1042,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           id: 'settlement2',
           householdId: 'household1',
           year: 2024,
-          month: 2,
+          month: new Date(2024, 1), // February 2024
           status: SettlementStatus.FINALIZED,
           createdAt: new Date(2024, 2, 1),
           finalizedAt: new Date(2024, 2, 5),
@@ -1053,7 +1053,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
           id: 'settlement3',
           householdId: 'household1',
           year: 2024,
-          month: 3,
+          month: new Date(2024, 2), // March 2024
           status: SettlementStatus.DRAFT,
           createdAt: new Date(2024, 3, 1),
           lines: [],
@@ -1079,12 +1079,12 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
       expect(result).toHaveLength(3);
 
       // Verify chronological ordering (desc by year, month)
-      expect(result[0].year).toBe(2024);
-      expect(result[0].month).toBe(1);
-      expect(result[1].year).toBe(2024);
-      expect(result[1].month).toBe(2);
-      expect(result[2].year).toBe(2024);
-      expect(result[2].month).toBe(3);
+      expect(result[0]!.month.getFullYear()).toBe(2024);
+      expect(result[0]!.month.getMonth() + 1).toBe(1);
+      expect(result[1]!.month.getFullYear()).toBe(2024);
+      expect(result[1]!.month.getMonth() + 1).toBe(2);
+      expect(result[2]!.month.getFullYear()).toBe(2024);
+      expect(result[2]!.month.getMonth() + 1).toBe(3);
 
       // Verify status consistency
       const finalizedSettlements = result.filter(
@@ -1106,7 +1106,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [],
@@ -1150,7 +1150,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
       const household2Results = await service.findAll(household2Context);
 
       expect(household1Results).toHaveLength(1);
-      expect(household1Results[0].householdId).toBe('household1');
+      expect(household1Results[0]!.householdId).toBe('household1');
 
       expect(household2Results).toHaveLength(0);
     });
@@ -1162,7 +1162,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [
@@ -1247,7 +1247,7 @@ describe('SettlementsService Workflow (Phase 4.2)', () => {
         id: 'settlement1',
         householdId: 'household1',
         year: 2024,
-        month: 3,
+        month: new Date(2024, 2), // March 2024
         status: SettlementStatus.DRAFT,
         createdAt: new Date(),
         lines: [

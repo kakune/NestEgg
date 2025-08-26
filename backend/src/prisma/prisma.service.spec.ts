@@ -37,7 +37,7 @@ describe('PrismaService', () => {
     };
 
     // Replace the service's prisma client with our mock
-    service.prisma = mockPrismaClient as typeof service.prisma;
+    service.prisma = mockPrismaClient as unknown as typeof service.prisma;
   });
 
   afterEach(async () => {
@@ -51,8 +51,10 @@ describe('PrismaService', () => {
   describe('onModuleInit', () => {
     it('should connect to the database', async () => {
       // Mock the $connect method if it exists
-      if (service.$connect) {
-        const connectSpy = jest.spyOn(service, '$connect').mockResolvedValue();
+      if (typeof service.prisma.$connect === 'function') {
+        const connectSpy = jest
+          .spyOn(service.prisma, '$connect')
+          .mockResolvedValue();
         await service.onModuleInit();
         expect(connectSpy).toHaveBeenCalled();
         connectSpy.mockRestore();
@@ -63,9 +65,9 @@ describe('PrismaService', () => {
     });
 
     it('should handle connection errors gracefully', async () => {
-      if (service.$connect) {
+      if (typeof service.prisma.$connect === 'function') {
         const connectSpy = jest
-          .spyOn(service, '$connect')
+          .spyOn(service.prisma, '$connect')
           .mockRejectedValue(new Error('Connection failed'));
 
         await expect(service.onModuleInit()).rejects.toThrow(
@@ -81,9 +83,9 @@ describe('PrismaService', () => {
 
   describe('onModuleDestroy', () => {
     it('should disconnect from the database', async () => {
-      if (service.$disconnect) {
+      if (typeof service.prisma.$disconnect === 'function') {
         const disconnectSpy = jest
-          .spyOn(service, '$disconnect')
+          .spyOn(service.prisma, '$disconnect')
           .mockResolvedValue();
 
         await service.onModuleDestroy();
@@ -96,9 +98,9 @@ describe('PrismaService', () => {
     });
 
     it('should handle disconnection errors gracefully', async () => {
-      if (service.$disconnect) {
+      if (typeof service.prisma.$disconnect === 'function') {
         const disconnectSpy = jest
-          .spyOn(service, '$disconnect')
+          .spyOn(service.prisma, '$disconnect')
           .mockRejectedValue(new Error('Disconnect failed'));
 
         await expect(service.onModuleDestroy()).rejects.toThrow(
@@ -128,7 +130,7 @@ describe('PrismaService', () => {
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
             // Execute the function with the mocked transaction client
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -152,7 +154,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -178,7 +180,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -205,7 +207,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -234,7 +236,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -260,7 +262,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -303,7 +305,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -341,7 +343,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 
@@ -367,7 +369,7 @@ describe('PrismaService', () => {
               ...service.prisma,
               $executeRaw: jest.fn().mockResolvedValue(undefined),
             };
-            return await fn(mockTx as typeof service.prisma);
+            return await fn(mockTx as unknown as typeof service.prisma);
           },
         );
 

@@ -8,7 +8,12 @@ import {
 } from './categories.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
-import { Category, UserRole, PrismaClient } from '@prisma/client';
+import {
+  Category,
+  UserRole,
+  PrismaClient,
+  TransactionType,
+} from '@prisma/client';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -25,22 +30,20 @@ describe('CategoriesService', () => {
     id: 'category-1',
     name: 'Test Category',
     parentId: null,
-    description: 'Test Description',
+    type: TransactionType.EXPENSE,
     householdId: 'household-1',
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
   };
 
   const mockChildCategory: Category = {
     id: 'category-2',
     name: 'Child Category',
     parentId: 'category-1',
-    description: 'Child Description',
+    type: TransactionType.EXPENSE,
     householdId: 'household-1',
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
   };
 
   beforeEach(async () => {
@@ -204,7 +207,7 @@ describe('CategoriesService', () => {
   describe('create', () => {
     const createCategoryDto: CreateCategoryDto = {
       name: 'New Category',
-      description: 'New Description',
+      type: TransactionType.EXPENSE,
     };
 
     it('should create a root category successfully', async () => {
@@ -230,6 +233,7 @@ describe('CategoriesService', () => {
       const createChildCategoryDto: CreateCategoryDto = {
         name: 'Child Category',
         parentId: 'category-1',
+        type: TransactionType.EXPENSE,
       };
 
       // Completely reset and rebuild the mock from scratch
@@ -269,6 +273,7 @@ describe('CategoriesService', () => {
       const createCategoryDto: CreateCategoryDto = {
         name: 'New Category',
         parentId: 'nonexistent-parent',
+        type: TransactionType.EXPENSE,
       };
 
       (
@@ -294,6 +299,7 @@ describe('CategoriesService', () => {
       const createCategoryDto: CreateCategoryDto = {
         name: 'Deep Category',
         parentId: 'deep-parent',
+        type: TransactionType.EXPENSE,
       };
 
       // Mock parent exists
@@ -362,7 +368,6 @@ describe('CategoriesService', () => {
       );
 
       expect(result.name).toBe(updateCategoryDto.name);
-      expect(result.description).toBe(updateCategoryDto.description);
     });
 
     it('should throw BadRequestException for self-reference', async () => {
@@ -494,7 +499,7 @@ describe('CategoriesService', () => {
           (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
             callback({
               category: {
-                update: jest.fn().mockResolvedValue(undefined),
+                delete: jest.fn().mockResolvedValue(undefined),
               },
             } as unknown as PrismaClient),
         );
@@ -604,8 +609,8 @@ describe('CategoriesService', () => {
       const result = await service.getCategoryPath('child', mockAuthContext);
 
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('root');
-      expect(result[1].id).toBe('child');
+      expect(result[0]?.id).toBe('root');
+      expect(result[1]?.id).toBe('child');
     });
   });
 
@@ -633,7 +638,7 @@ describe('CategoriesService', () => {
               transaction: {
                 count: jest.fn().mockResolvedValue(5),
                 aggregate: jest.fn().mockResolvedValue({
-                  _sum: { amount: 1000 },
+                  _sum: { amountYen: BigInt(1000) },
                   _count: 5,
                 }),
               },
@@ -811,7 +816,7 @@ describe('CategoriesService', () => {
         );
 
         expect(descendants).toHaveLength(1); // Should only return child-1
-        expect(descendants[0].id).toBe('child-1');
+        expect(descendants[0]?.id).toBe('child-1');
       });
     });
   });

@@ -526,23 +526,17 @@ describe('Database Schema Validation (Phase 1.1)', () => {
 
     describe('Enum Value Validation', () => {
       it('should validate UserRole enum values', () => {
-        const validRoles = [UserRole.admin, UserRole.member, UserRole.user];
+        const validRoles = [UserRole.admin, UserRole.member];
 
         expect(validRoles).toContain(UserRole.admin);
         expect(validRoles).toContain(UserRole.member);
-        expect(validRoles).toContain(UserRole.user);
       });
 
       it('should validate ActorKind enum values', () => {
-        const validKinds = [
-          ActorKind.USER,
-          ActorKind.INSTITUTION,
-          ActorKind.STORE,
-        ];
+        const validKinds = [ActorKind.USER, ActorKind.INSTRUMENT];
 
         expect(validKinds).toContain(ActorKind.USER);
-        expect(validKinds).toContain(ActorKind.INSTITUTION);
-        expect(validKinds).toContain(ActorKind.STORE);
+        expect(validKinds).toContain(ActorKind.INSTRUMENT);
       });
 
       it('should validate TransactionType enum values', () => {

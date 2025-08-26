@@ -23,7 +23,7 @@ import type {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { Transaction, TransactionType } from '@prisma/client';
 
 interface TransactionQueryParams {
@@ -75,7 +75,7 @@ export class TransactionsController {
     const filters = this.buildFilters(query);
     filters.search = searchQuery;
     filters.limit = filters.limit || 50; // Default limit for search
-    filters.sortBy = 'date';
+    filters.sortBy = 'occurredOn';
     filters.sortOrder = 'desc';
 
     return this.transactionsService.findAll(filters, user);
@@ -113,7 +113,7 @@ export class TransactionsController {
   ): Promise<TransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     filters.tags = [tag];
-    filters.sortBy = 'date';
+    filters.sortBy = 'occurredOn';
     filters.sortOrder = 'desc';
 
     return this.transactionsService.findAll(filters, user);
@@ -126,7 +126,7 @@ export class TransactionsController {
   ): Promise<TransactionWithDetails[]> {
     const filters: TransactionFilters = {
       limit: parseInt(limit),
-      sortBy: 'date',
+      sortBy: 'occurredOn',
       sortOrder: 'desc',
     };
 
@@ -143,7 +143,7 @@ export class TransactionsController {
     const filters = this.buildFilters(query);
     filters.dateFrom = new Date(from);
     filters.dateTo = new Date(to);
-    filters.sortBy = filters.sortBy || 'date';
+    filters.sortBy = filters.sortBy || 'occurredOn';
     filters.sortOrder = filters.sortOrder || 'desc';
 
     return this.transactionsService.findAll(filters, user);
@@ -229,16 +229,16 @@ export class TransactionsController {
       filters.tags = Array.isArray(query.tags) ? query.tags : [query.tags];
     if (query.search) filters.search = query.search;
     if (query.shouldPay !== undefined)
-      filters.shouldPay = query.shouldPay === 'true';
+      filters.shouldPay = query.shouldPay as 'HOUSEHOLD' | 'USER';
     if (query.amountFrom) filters.amountFrom = parseInt(query.amountFrom);
     if (query.amountTo) filters.amountTo = parseInt(query.amountTo);
     if (query.limit) filters.limit = parseInt(query.limit);
     if (query.offset) filters.offset = parseInt(query.offset);
     if (query.sortBy)
       filters.sortBy = query.sortBy as
-        | 'date'
-        | 'amount'
-        | 'description'
+        | 'occurredOn'
+        | 'amountYen'
+        | 'note'
         | 'createdAt';
     if (query.sortOrder) filters.sortOrder = query.sortOrder as 'asc' | 'desc';
 

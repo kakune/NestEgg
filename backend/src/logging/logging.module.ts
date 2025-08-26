@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import type { IncomingMessage } from 'http';
 
-interface PinoRequest {
+interface PinoRequest extends IncomingMessage {
   method: string;
   url: string;
   params: unknown;
@@ -47,10 +48,10 @@ interface PinoResponse {
               statusCode: res.statusCode,
             }),
           },
-          customProps: (req: PinoRequest) => ({
-            userId: req.user?.id,
-            householdId: req.user?.householdId,
-            requestId: req.headers['x-request-id'],
+          customProps: (req: IncomingMessage) => ({
+            userId: (req as PinoRequest).user?.id,
+            householdId: (req as PinoRequest).user?.householdId,
+            requestId: (req as PinoRequest).headers['x-request-id'],
           }),
         },
       }),

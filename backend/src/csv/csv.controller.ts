@@ -13,7 +13,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Response } from 'express';
+import type { Response } from 'express';
 import {
   CsvService,
   FieldMapping,
@@ -23,9 +23,10 @@ import {
 } from './csv.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { TransactionFilters } from '../transactions/transactions.service';
 import { IncomeFilters } from '../incomes/incomes.service';
+import { TransactionType } from '@prisma/client';
 
 interface CsvQueryParams {
   dateFrom?: string;
@@ -47,6 +48,8 @@ interface IncomeExportQueryParams {
   yearFrom?: string;
   yearTo?: string;
   format?: string;
+  dateFormat?: string;
+  includeHeaders?: string;
 }
 
 interface PreviewTransactionImportDto {
@@ -140,29 +143,27 @@ export class CsvController {
   ): Promise<void> {
     const authContext = user;
     const filters: TransactionFilters = {
-      dateFrom: query.dateFrom ? new Date(query.dateFrom) : undefined,
-      dateTo: query.dateTo ? new Date(query.dateTo) : undefined,
-      categoryIds: query.categoryIds
-        ? Array.isArray(query.categoryIds)
+      ...(query.dateFrom && { dateFrom: new Date(query.dateFrom) }),
+      ...(query.dateTo && { dateTo: new Date(query.dateTo) }),
+      ...(query.categoryIds && {
+        categoryIds: Array.isArray(query.categoryIds)
           ? query.categoryIds
-          : [query.categoryIds]
-        : undefined,
-      actorIds: query.actorIds
-        ? Array.isArray(query.actorIds)
+          : [query.categoryIds],
+      }),
+      ...(query.actorIds && {
+        actorIds: Array.isArray(query.actorIds)
           ? query.actorIds
-          : [query.actorIds]
-        : undefined,
-      types: query.types
-        ? Array.isArray(query.types)
-          ? query.types
-          : [query.types]
-        : undefined,
-      tags: query.tags
-        ? Array.isArray(query.tags)
-          ? query.tags
-          : [query.tags]
-        : undefined,
-      search: query.search,
+          : [query.actorIds],
+      }),
+      ...(query.types && {
+        types: Array.isArray(query.types)
+          ? (query.types as TransactionType[])
+          : [query.types as TransactionType],
+      }),
+      ...(query.tags && {
+        tags: Array.isArray(query.tags) ? query.tags : [query.tags],
+      }),
+      ...(query.search && { search: query.search }),
     };
 
     const options: ExportOptions = {
@@ -172,7 +173,7 @@ export class CsvController {
     };
 
     const exportData = await this.csvService.exportTransactions(
-      filters,
+      { ...filters } as Record<string, unknown>,
       options,
       authContext,
     );
@@ -244,11 +245,11 @@ export class CsvController {
   ): Promise<void> {
     const authContext = user;
     const filters: IncomeFilters = {
-      userId: query.userId,
-      year: query.year ? parseInt(query.year) : undefined,
-      month: query.month ? parseInt(query.month) : undefined,
-      yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
-      yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
+      ...(query.userId && { userId: query.userId }),
+      ...(query.year && { year: parseInt(query.year) }),
+      ...(query.month && { month: parseInt(query.month) }),
+      ...(query.yearFrom && { yearFrom: parseInt(query.yearFrom) }),
+      ...(query.yearTo && { yearTo: parseInt(query.yearTo) }),
     };
 
     const options: ExportOptions = {
@@ -258,7 +259,7 @@ export class CsvController {
     };
 
     const exportData = await this.csvService.exportIncomes(
-      filters,
+      { ...filters } as Record<string, unknown>,
       options,
       authContext,
     );
@@ -308,7 +309,7 @@ user-id-1,320000,52000,2024,2,"February salary","Payslip Feb 2024"`;
     return [
       {
         csvField: 'amount',
-        systemField: 'amount',
+        systemField: 'amount_yen',
         required: true,
         transform: 'number',
       },
@@ -317,29 +318,29 @@ user-id-1,320000,52000,2024,2,"February salary","Payslip Feb 2024"`;
         systemField: 'type',
         required: true,
         transform: 'enum',
-        enumValues: ['income', 'expense'],
+        enumValues: ['INCOME', 'EXPENSE'],
       },
       {
         csvField: 'description',
-        systemField: 'description',
+        systemField: 'note',
         required: true,
         transform: 'string',
       },
       {
         csvField: 'date',
-        systemField: 'date',
+        systemField: 'occurred_on',
         required: true,
         transform: 'date',
       },
       {
         csvField: 'categoryId',
-        systemField: 'categoryId',
+        systemField: 'category_id',
         required: true,
         transform: 'string',
       },
       {
         csvField: 'actorId',
-        systemField: 'actorId',
+        systemField: 'payer_actor_id',
         required: true,
         transform: 'string',
       },
@@ -348,19 +349,20 @@ user-id-1,320000,52000,2024,2,"February salary","Payslip Feb 2024"`;
         systemField: 'tags',
         required: false,
         transform: 'string',
-        defaultValue: [],
+        defaultValue: null,
       },
       {
         csvField: 'notes',
-        systemField: 'notes',
+        systemField: 'note',
         required: false,
         transform: 'string',
       },
       {
         csvField: 'shouldPay',
-        systemField: 'shouldPay',
-        required: false,
-        transform: 'boolean',
+        systemField: 'should_pay',
+        required: true,
+        transform: 'enum',
+        enumValues: ['HOUSEHOLD', 'USER'],
       },
     ];
   }

@@ -79,7 +79,9 @@ export class ResponseInterceptor<T>
             data: items,
             meta: {
               has_more: Boolean(paginationData.has_more) || false,
-              next_cursor: paginationData.next_cursor,
+              ...(paginationData.next_cursor && {
+                next_cursor: paginationData.next_cursor,
+              }),
               count: Array.isArray(items) ? items.length : 0,
               ...(paginationData.total_amount_yen && {
                 total_amount_yen: paginationData.total_amount_yen,

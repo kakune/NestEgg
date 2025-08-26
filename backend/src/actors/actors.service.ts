@@ -38,14 +38,12 @@ export interface ActorWithUser extends Actor {
 export interface CreateActorDto {
   name: string;
   kind: ActorKind;
-  description?: string;
   userId?: string;
 }
 
 export interface UpdateActorDto {
   name?: string;
   kind?: ActorKind;
-  description?: string;
 }
 
 @Injectable()
@@ -93,12 +91,12 @@ export class ActorsService {
           transactions: {
             select: {
               id: true,
-              amount: true,
-              description: true,
-              date: true,
+              amountYen: true,
+              note: true,
+              occurredOn: true,
             },
             take: 10, // Latest 10 transactions
-            orderBy: { date: 'desc' },
+            orderBy: { occurredOn: 'desc' },
           },
         },
       });
@@ -159,7 +157,7 @@ export class ActorsService {
       where: {
         name: createActorDto.name,
         householdId: authContext.householdId,
-        deletedAt: null,
+        isActive: true,
       },
     });
 
@@ -171,13 +169,11 @@ export class ActorsService {
       const actorData: {
         name: string;
         kind: ActorKind;
-        description?: string;
         householdId: string;
-        userId: string;
+        userId: string | null;
       } = {
         name: createActorDto.name,
         kind: createActorDto.kind,
-        description: createActorDto.description,
         householdId: authContext.householdId,
         userId: targetUserId,
       };
@@ -220,7 +216,7 @@ export class ActorsService {
             name: updateActorDto.name,
             householdId: authContext.householdId,
             id: { not: id },
-            deletedAt: null,
+            isActive: true,
           },
         },
       );
@@ -234,8 +230,6 @@ export class ActorsService {
       const updateData: Record<string, unknown> = {};
       if (updateActorDto.name) updateData.name = updateActorDto.name;
       if (updateActorDto.kind) updateData.kind = updateActorDto.kind;
-      if (updateActorDto.description !== undefined)
-        updateData.description = updateActorDto.description;
 
       return prisma.actor.update({
         where: { id },
@@ -266,7 +260,7 @@ export class ActorsService {
 
     // Prevent deleting actors that have transactions
     const transactionCount = await this.prismaService.prisma.transaction.count({
-      where: { actorId: id },
+      where: { payerActorId: id },
     });
 
     if (transactionCount > 0) {
@@ -278,7 +272,7 @@ export class ActorsService {
     await this.prismaService.withContext(authContext, async (prisma) => {
       await prisma.actor.update({
         where: { id },
-        data: { deletedAt: new Date() },
+        data: { isActive: false },
       });
     });
   }
@@ -294,34 +288,34 @@ export class ActorsService {
         await Promise.all([
           // Total transaction count
           prisma.transaction.count({
-            where: { actorId: id },
+            where: { payerActorId: id },
           }),
 
           // Total income transactions
           prisma.transaction.aggregate({
             where: {
-              actorId: id,
-              amount: { gt: 0 },
+              payerActorId: id,
+              amountYen: { gt: 0 },
             },
-            _sum: { amount: true },
+            _sum: { amountYen: true },
             _count: true,
           }),
 
           // Total expense transactions
           prisma.transaction.aggregate({
             where: {
-              actorId: id,
-              amount: { lt: 0 },
+              payerActorId: id,
+              amountYen: { lt: 0 },
             },
-            _sum: { amount: true },
+            _sum: { amountYen: true },
             _count: true,
           }),
 
           // Recent transactions (last 30 days)
           prisma.transaction.count({
             where: {
-              actorId: id,
-              date: {
+              payerActorId: id,
+              occurredOn: {
                 gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
               },
             },
@@ -342,11 +336,11 @@ export class ActorsService {
         actor: actorInfo,
         statistics: {
           totalTransactions: transactionCount,
-          totalIncome: (totalIncome._sum.amount ?? 0) as number,
-          totalExpenses: Math.abs((totalExpenses._sum.amount ?? 0) as number),
+          totalIncome: Number(totalIncome._sum.amountYen ?? 0),
+          totalExpenses: Math.abs(Number(totalExpenses._sum.amountYen ?? 0)),
           netAmount:
-            ((totalIncome._sum.amount ?? 0) as number) +
-            ((totalExpenses._sum.amount ?? 0) as number),
+            Number(totalIncome._sum.amountYen ?? 0) +
+            Number(totalExpenses._sum.amountYen ?? 0),
           incomeTransactionCount: totalIncome._count,
           expenseTransactionCount: totalExpenses._count,
           recentTransactions: recentTransactions,

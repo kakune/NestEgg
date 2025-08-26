@@ -4,46 +4,44 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Transaction, TransactionType } from '@prisma/client';
+import { Transaction, TransactionType, ShouldPayType } from '@prisma/client';
 import { ActorsService } from '../actors/actors.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import * as crypto from 'crypto';
 
-// Type for Prisma where clause
-interface TransactionWhere {
+// Re-export DTOs for controllers
+export { CreateTransactionDto, UpdateTransactionDto };
+
+// Interface for database data conversion
+interface ConvertedTransactionData {
+  type?: TransactionType;
+  amountYen?: number;
+  note?: string;
+  occurredOn?: Date;
+  categoryId?: string;
+  payerActorId?: string;
+  tags?: string[];
+  shouldPay?: ShouldPayType;
+  shouldPayUserId?: string;
+  sourceHash?: string;
+}
+
+// Interface for complete transaction creation data
+interface TransactionCreateData {
+  type: TransactionType;
+  amountYen: number;
+  occurredOn: Date;
+  categoryId: string;
+  payerActorId: string;
+  note?: string | null;
+  tags: string[];
+  shouldPay: ShouldPayType;
+  shouldPayUserId?: string | null;
+  sourceHash: string;
   householdId: string;
-  date?: {
-    gte?: Date;
-    lte?: Date;
-  };
-  categoryId?: {
-    in?: string[];
-  };
-  actorId?: {
-    in?: string[];
-  };
-  type?: {
-    in?: TransactionType[];
-  };
-  amount?: {
-    gte?: number;
-    lte?: number;
-  };
-  shouldPay?: boolean;
-  tags?: {
-    hasSome?: string[];
-  };
-  OR?: Array<{
-    description?: {
-      contains?: string;
-      mode?: 'insensitive';
-    };
-    notes?: {
-      contains?: string;
-      mode?: 'insensitive';
-    };
-  }>;
 }
 
 // Type for Prisma orderBy clause
@@ -62,31 +60,6 @@ export interface TransactionSummary {
   expenseCount: number;
 }
 
-export interface CreateTransactionDto {
-  amount: number;
-  type: TransactionType;
-  description: string;
-  date: Date;
-  categoryId: string;
-  actorId: string;
-  tags?: string[];
-  notes?: string;
-  shouldPay?: boolean;
-  sourceHash?: string; // For duplicate detection during imports
-}
-
-export interface UpdateTransactionDto {
-  amount?: number;
-  type?: TransactionType;
-  description?: string;
-  date?: Date;
-  categoryId?: string;
-  actorId?: string;
-  tags?: string[];
-  notes?: string;
-  shouldPay?: boolean;
-}
-
 export interface TransactionFilters {
   dateFrom?: Date;
   dateTo?: Date;
@@ -94,13 +67,13 @@ export interface TransactionFilters {
   actorIds?: string[];
   types?: TransactionType[];
   tags?: string[];
-  search?: string; // Full-text search on description and notes
-  shouldPay?: boolean;
+  search?: string; // Full-text search on note
+  shouldPay?: 'HOUSEHOLD' | 'USER';
   amountFrom?: number;
   amountTo?: number;
   limit?: number;
   offset?: number;
-  sortBy?: 'date' | 'amount' | 'description' | 'createdAt';
+  sortBy?: 'occurredOn' | 'amountYen' | 'note' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -108,15 +81,15 @@ export interface TransactionWithDetails extends Transaction {
   category: {
     id: string;
     name: string;
-    parent?: {
+    parent: {
       id: string;
       name: string;
-    };
+    } | null;
   };
-  actor: {
+  payerActor: {
     id: string;
     name: string;
-    type: string;
+    kind: string;
   };
 }
 
@@ -128,90 +101,48 @@ export class TransactionsService {
     private readonly categoriesService: CategoriesService,
   ) {}
 
+  private convertDtoToDbData(
+    dto: CreateTransactionDto | UpdateTransactionDto,
+  ): ConvertedTransactionData {
+    const result: ConvertedTransactionData = {};
+
+    if ('amount_yen' in dto) result.amountYen = dto.amount_yen;
+    if ('type' in dto) result.type = dto.type;
+    if ('note' in dto && dto.note !== undefined) result.note = dto.note;
+    if ('occurred_on' in dto) {
+      result.occurredOn =
+        typeof dto.occurred_on === 'string'
+          ? new Date(dto.occurred_on)
+          : dto.occurred_on;
+    }
+    if ('category_id' in dto) result.categoryId = dto.category_id;
+    if ('payer_actor_id' in dto) result.payerActorId = dto.payer_actor_id;
+    if ('tags' in dto && dto.tags !== undefined) result.tags = dto.tags;
+    if ('should_pay' in dto && dto.should_pay !== undefined)
+      result.shouldPay = dto.should_pay as ShouldPayType;
+    if ('should_pay_user_id' in dto && dto.should_pay_user_id !== undefined)
+      result.shouldPayUserId = dto.should_pay_user_id;
+    if ('source_hash' in dto && dto.source_hash !== undefined)
+      result.sourceHash = dto.source_hash;
+
+    return result;
+  }
+
   async findAll(
     filters: TransactionFilters,
     authContext: AuthContext,
   ): Promise<TransactionWithDetails[]> {
     return this.prismaService.withContext(authContext, async (prisma) => {
-      const where: TransactionWhere = {
+      const where: Record<string, unknown> = {
         householdId: authContext.householdId,
+        deletedAt: null,
       };
 
-      // Date range filtering
-      if (filters.dateFrom || filters.dateTo) {
-        where.date = {};
-        if (filters.dateFrom) {
-          where.date.gte = filters.dateFrom;
-        }
-        if (filters.dateTo) {
-          where.date.lte = filters.dateTo;
-        }
-      }
-
-      // Category filtering
-      if (filters.categoryIds && filters.categoryIds.length > 0) {
-        where.categoryId = {
-          in: filters.categoryIds,
-        };
-      }
-
-      // Actor filtering
-      if (filters.actorIds && filters.actorIds.length > 0) {
-        where.actorId = {
-          in: filters.actorIds,
-        };
-      }
-
-      // Type filtering
-      if (filters.types && filters.types.length > 0) {
-        where.type = {
-          in: filters.types,
-        };
-      }
-
-      // Amount range filtering
-      if (filters.amountFrom !== undefined || filters.amountTo !== undefined) {
-        where.amount = {};
-        if (filters.amountFrom !== undefined) {
-          where.amount.gte = filters.amountFrom;
-        }
-        if (filters.amountTo !== undefined) {
-          where.amount.lte = filters.amountTo;
-        }
-      }
-
-      // Should pay filtering
-      if (filters.shouldPay !== undefined) {
-        where.shouldPay = filters.shouldPay;
-      }
-
-      // Tags filtering
-      if (filters.tags && filters.tags.length > 0) {
-        where.tags = {
-          hasSome: filters.tags,
-        };
-      }
-
-      // Full-text search on description and notes
-      if (filters.search) {
-        where.OR = [
-          {
-            description: {
-              contains: filters.search,
-              mode: 'insensitive',
-            },
-          },
-          {
-            notes: {
-              contains: filters.search,
-              mode: 'insensitive',
-            },
-          },
-        ];
-      }
+      // Apply filters using the helper method
+      this.applyFiltersToWhere(where, filters);
 
       const orderBy: TransactionOrderBy = {};
-      const sortBy = filters.sortBy || 'date';
+      const sortBy = filters.sortBy || 'occurredOn';
       const sortOrder = filters.sortOrder || 'desc';
       orderBy[sortBy] = sortOrder;
 
@@ -230,11 +161,11 @@ export class TransactionsService {
               },
             },
           },
-          actor: {
+          payerActor: {
             select: {
               id: true,
               name: true,
-              type: true,
+              kind: true,
             },
           },
         },
@@ -268,11 +199,11 @@ export class TransactionsService {
               },
             },
           },
-          actor: {
+          payerActor: {
             select: {
               id: true,
               name: true,
-              type: true,
+              kind: true,
             },
           },
         },
@@ -294,11 +225,11 @@ export class TransactionsService {
     await this.validateTransaction(createTransactionDto, authContext);
 
     // Check for duplicate if source hash is provided (for imports)
-    if (createTransactionDto.sourceHash) {
+    if (createTransactionDto.source_hash) {
       const existingTransaction =
         await this.prismaService.prisma.transaction.findFirst({
           where: {
-            sourceHash: createTransactionDto.sourceHash,
+            sourceHash: createTransactionDto.source_hash,
             householdId: authContext.householdId,
           },
         });
@@ -309,27 +240,30 @@ export class TransactionsService {
     }
 
     return this.prismaService.withContext(authContext, async (prisma) => {
+      const dbData = this.convertDtoToDbData(createTransactionDto);
+
+      const createData: TransactionCreateData = {
+        type: dbData.type!,
+        amountYen: dbData.amountYen!,
+        occurredOn: dbData.occurredOn!,
+        categoryId: dbData.categoryId!,
+        payerActorId: dbData.payerActorId!,
+        note: dbData.note || null,
+        tags: dbData.tags || [],
+        shouldPay:
+          (dbData.shouldPay as ShouldPayType) ??
+          this.calculateShouldPay(createTransactionDto),
+        shouldPayUserId: dbData.shouldPayUserId || null,
+        sourceHash:
+          dbData.sourceHash || this.generateSourceHash(createTransactionDto),
+        householdId: authContext.householdId,
+      };
+
       return prisma.transaction.create({
-        data: {
-          amount: createTransactionDto.amount,
-          type: createTransactionDto.type,
-          description: createTransactionDto.description,
-          date: createTransactionDto.date,
-          categoryId: createTransactionDto.categoryId,
-          actorId: createTransactionDto.actorId,
-          tags: createTransactionDto.tags || [],
-          notes: createTransactionDto.notes,
-          shouldPay:
-            createTransactionDto.shouldPay ??
-            this.calculateShouldPay(createTransactionDto),
-          sourceHash:
-            createTransactionDto.sourceHash ||
-            this.generateSourceHash(createTransactionDto),
-          householdId: authContext.householdId,
-        },
+        data: createData,
         include: {
           category: true,
-          actor: true,
+          payerActor: true,
         },
       });
     });
@@ -355,36 +289,14 @@ export class TransactionsService {
     );
 
     return this.prismaService.withContext(authContext, async (prisma) => {
+      const dbData = this.convertDtoToDbData(updateTransactionDto);
+
       return prisma.transaction.update({
         where: { id },
-        data: {
-          ...(updateTransactionDto.amount !== undefined && {
-            amount: updateTransactionDto.amount,
-          }),
-          ...(updateTransactionDto.type && { type: updateTransactionDto.type }),
-          ...(updateTransactionDto.description && {
-            description: updateTransactionDto.description,
-          }),
-          ...(updateTransactionDto.date && { date: updateTransactionDto.date }),
-          ...(updateTransactionDto.categoryId && {
-            categoryId: updateTransactionDto.categoryId,
-          }),
-          ...(updateTransactionDto.actorId && {
-            actorId: updateTransactionDto.actorId,
-          }),
-          ...(updateTransactionDto.tags !== undefined && {
-            tags: updateTransactionDto.tags,
-          }),
-          ...(updateTransactionDto.notes !== undefined && {
-            notes: updateTransactionDto.notes,
-          }),
-          ...(updateTransactionDto.shouldPay !== undefined && {
-            shouldPay: updateTransactionDto.shouldPay,
-          }),
-        },
+        data: dbData,
         include: {
           category: true,
-          actor: true,
+          payerActor: true,
         },
       });
     });
@@ -417,11 +329,11 @@ export class TransactionsService {
         await this.validateTransaction(dto, authContext);
 
         // Check for duplicate if source hash is provided
-        if (dto.sourceHash) {
+        if (dto.source_hash) {
           const existingTransaction =
             await this.prismaService.prisma.transaction.findFirst({
               where: {
-                sourceHash: dto.sourceHash,
+                sourceHash: dto.source_hash,
                 householdId: authContext.householdId,
               },
             });
@@ -447,19 +359,23 @@ export class TransactionsService {
     }
 
     // Bulk create valid transactions
-    const dataToCreate = validDtos.map((dto) => ({
-      amount: dto.amount,
-      type: dto.type,
-      description: dto.description,
-      date: dto.date,
-      categoryId: dto.categoryId,
-      actorId: dto.actorId,
-      tags: dto.tags || [],
-      notes: dto.notes,
-      shouldPay: dto.shouldPay ?? this.calculateShouldPay(dto),
-      sourceHash: dto.sourceHash || this.generateSourceHash(dto),
-      householdId: authContext.householdId,
-    }));
+    const dataToCreate: TransactionCreateData[] = validDtos.map((dto) => {
+      const dbData = this.convertDtoToDbData(dto);
+      return {
+        type: dbData.type!,
+        amountYen: dbData.amountYen!,
+        occurredOn: dbData.occurredOn!,
+        categoryId: dbData.categoryId!,
+        payerActorId: dbData.payerActorId!,
+        note: dbData.note || null,
+        tags: dbData.tags || [],
+        shouldPay:
+          (dbData.shouldPay as ShouldPayType) ?? this.calculateShouldPay(dto),
+        shouldPayUserId: dbData.shouldPayUserId || null,
+        sourceHash: dbData.sourceHash || this.generateSourceHash(dto),
+        householdId: authContext.householdId,
+      };
+    });
 
     const result = await this.prismaService.withContext(
       authContext,
@@ -535,8 +451,9 @@ export class TransactionsService {
     authContext: AuthContext,
   ): Promise<TransactionSummary> {
     return this.prismaService.withContext(authContext, async (prisma) => {
-      const where: TransactionWhere = {
+      const where: Record<string, unknown> = {
         householdId: authContext.householdId,
+        deletedAt: null,
       };
 
       // Apply same filters as findAll
@@ -546,31 +463,31 @@ export class TransactionsService {
         await Promise.all([
           prisma.transaction.count({ where }),
           prisma.transaction.aggregate({
-            where: { ...where, amount: { gt: 0 } },
-            _sum: { amount: true },
+            where: { ...where, amountYen: { gt: 0 } },
+            _sum: { amountYen: true },
             _count: true,
           }),
           prisma.transaction.aggregate({
-            where: { ...where, amount: { lt: 0 } },
-            _sum: { amount: true },
+            where: { ...where, amountYen: { lt: 0 } },
+            _sum: { amountYen: true },
             _count: true,
           }),
           prisma.transaction.aggregate({
             where,
-            _avg: { amount: true },
+            _avg: { amountYen: true },
           }),
         ]);
 
       return {
         totalTransactions: totalCount,
-        totalIncome: Number(totalIncome._sum.amount) || 0,
-        totalExpenses: Math.abs(Number(totalExpenses._sum.amount) || 0),
+        totalIncome: Number(totalIncome._sum.amountYen || 0),
+        totalExpenses: Math.abs(Number(totalExpenses._sum.amountYen || 0)),
         netAmount:
-          (Number(totalIncome._sum.amount) || 0) +
-          (Number(totalExpenses._sum.amount) || 0),
-        averageTransaction: Number(avgTransaction._avg.amount) || 0,
-        incomeCount: totalIncome._count,
-        expenseCount: totalExpenses._count,
+          Number(totalIncome._sum.amountYen || 0) +
+          Number(totalExpenses._sum.amountYen || 0),
+        averageTransaction: Number(avgTransaction._avg.amountYen || 0),
+        incomeCount: Number(totalIncome._count || 0),
+        expenseCount: Number(totalExpenses._count || 0),
       };
     });
   }
@@ -582,28 +499,27 @@ export class TransactionsService {
     const errors: string[] = [];
 
     // Validate amount (must be non-zero integer)
-    if (!Number.isInteger(dto.amount) || dto.amount === 0) {
+    if (!Number.isInteger(dto.amount_yen) || dto.amount_yen === 0) {
       errors.push('Amount must be a non-zero integer');
     }
 
-    // Validate description
-    if (!dto.description || dto.description.trim().length === 0) {
-      errors.push('Description is required');
-    } else if (dto.description.length > 500) {
-      errors.push('Description cannot exceed 500 characters');
+    // Validate note
+    if (dto.note && dto.note.length > 500) {
+      errors.push('Note cannot exceed 500 characters');
     }
 
     // Validate date
-    if (!dto.date || isNaN(dto.date.getTime())) {
+    const occurredOn = new Date(dto.occurred_on);
+    if (!dto.occurred_on || isNaN(occurredOn.getTime())) {
       errors.push('Valid date is required');
-    } else if (dto.date > new Date()) {
+    } else if (occurredOn > new Date()) {
       errors.push('Transaction date cannot be in the future');
     }
 
     // Validate category exists and belongs to household
     try {
       const category = await this.categoriesService.findOne(
-        dto.categoryId,
+        dto.category_id,
         authContext,
       );
       if (!category) {
@@ -615,7 +531,10 @@ export class TransactionsService {
 
     // Validate actor exists and belongs to household
     try {
-      const actor = await this.actorsService.findOne(dto.actorId, authContext);
+      const actor = await this.actorsService.findOne(
+        dto.payer_actor_id,
+        authContext,
+      );
       if (!actor) {
         errors.push('Actor not found');
       }
@@ -624,9 +543,9 @@ export class TransactionsService {
     }
 
     // Validate transaction type consistency
-    if (dto.type === TransactionType.INCOME && dto.amount < 0) {
+    if (dto.type === TransactionType.INCOME && dto.amount_yen < 0) {
       errors.push('Income transactions must have positive amounts');
-    } else if (dto.type === TransactionType.EXPENSE && dto.amount > 0) {
+    } else if (dto.type === TransactionType.EXPENSE && dto.amount_yen > 0) {
       errors.push('Expense transactions must have negative amounts');
     }
 
@@ -643,39 +562,47 @@ export class TransactionsService {
       }
     }
 
-    // Validate notes length
-    if (dto.notes && dto.notes.length > 1000) {
-      errors.push('Notes cannot exceed 1000 characters');
-    }
+    // Note validation is already covered above
 
     if (errors.length > 0) {
       throw new BadRequestException(`Validation failed: ${errors.join(', ')}`);
     }
   }
 
-  private calculateShouldPay(dto: CreateTransactionDto): boolean {
-    // Default business logic: expenses should be paid, income should not
-    return dto.type === TransactionType.EXPENSE;
+  private calculateShouldPay(dto: CreateTransactionDto): ShouldPayType {
+    // Default business logic: expenses should be paid by household, income by user
+    return dto.type === TransactionType.EXPENSE ? 'HOUSEHOLD' : 'USER';
   }
 
   private generateSourceHash(dto: CreateTransactionDto): string {
     // Generate a hash based on key transaction properties for duplicate detection
-    const hashInput = `${dto.amount}-${dto.date.toISOString()}-${dto.description}-${dto.actorId}-${dto.categoryId}`;
+    const hashInput = `${dto.amount_yen}-${dto.occurred_on}-${dto.note || ''}-${dto.payer_actor_id}-${dto.category_id}`;
     return crypto.createHash('sha256').update(hashInput).digest('hex');
   }
 
   private applyFiltersToWhere(
-    where: TransactionWhere,
+    where: Record<string, unknown>,
     filters: TransactionFilters,
   ): void {
     // Date range filtering
     if (filters.dateFrom || filters.dateTo) {
-      where.date = {};
+      where.occurredOn = {};
       if (filters.dateFrom) {
-        where.date.gte = filters.dateFrom;
+        (where.occurredOn as Record<string, unknown>).gte = filters.dateFrom;
       }
       if (filters.dateTo) {
-        where.date.lte = filters.dateTo;
+        (where.occurredOn as Record<string, unknown>).lte = filters.dateTo;
+      }
+    }
+
+    // Amount range filtering
+    if (filters.amountFrom !== undefined || filters.amountTo !== undefined) {
+      where.amountYen = {};
+      if (filters.amountFrom !== undefined) {
+        (where.amountYen as Record<string, unknown>).gte = filters.amountFrom;
+      }
+      if (filters.amountTo !== undefined) {
+        (where.amountYen as Record<string, unknown>).lte = filters.amountTo;
       }
     }
 
@@ -684,7 +611,7 @@ export class TransactionsService {
       where.categoryId = { in: filters.categoryIds };
     }
     if (filters.actorIds?.length) {
-      where.actorId = { in: filters.actorIds };
+      where.payerActorId = { in: filters.actorIds };
     }
     if (filters.types?.length) {
       where.type = { in: filters.types };
@@ -696,10 +623,7 @@ export class TransactionsService {
       where.tags = { hasSome: filters.tags };
     }
     if (filters.search) {
-      where.OR = [
-        { description: { contains: filters.search, mode: 'insensitive' } },
-        { notes: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      where.OR = [{ note: { contains: filters.search, mode: 'insensitive' } }];
     }
   }
 }

@@ -13,6 +13,9 @@ import { AuthContext } from '../common/interfaces/auth-context.interface';
 
 export type { AuthContext };
 
+// Public user type that excludes sensitive fields
+export type PublicUser = Omit<User, 'passwordHash'>;
+
 export interface CreateUserDto {
   email: string;
   name: string;
@@ -38,7 +41,7 @@ export class UsersService {
     private readonly configService: ConfigService,
   ) {}
 
-  async findAll(authContext: AuthContext): Promise<User[]> {
+  async findAll(authContext: AuthContext): Promise<PublicUser[]> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       return prisma.user.findMany({
         where: {
@@ -58,7 +61,7 @@ export class UsersService {
     });
   }
 
-  async findOne(id: string, authContext: AuthContext): Promise<User> {
+  async findOne(id: string, authContext: AuthContext): Promise<PublicUser> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const user = await prisma.user.findFirst({
         where: {
@@ -105,7 +108,7 @@ export class UsersService {
   async create(
     createUserDto: CreateUserDto,
     authContext: AuthContext,
-  ): Promise<User> {
+  ): Promise<PublicUser> {
     // Only admins can create users
     if (authContext.role !== UserRole.admin) {
       throw new ForbiddenException('Only administrators can create users');
@@ -155,7 +158,7 @@ export class UsersService {
     id: string,
     updateUserDto: UpdateUserDto,
     authContext: AuthContext,
-  ): Promise<User> {
+  ): Promise<PublicUser> {
     // Verify user exists (will throw if not found)
     await this.findOne(id, authContext);
 
@@ -268,10 +271,9 @@ export class UsersService {
         data: { passwordHash: newPasswordHash },
       });
 
-      // Revoke all existing sessions for the user
-      await prisma.session.updateMany({
+      // Revoke all existing sessions for the user by deleting them
+      await prisma.session.deleteMany({
         where: { userId: id },
-        data: { revokedAt: new Date() },
       });
     });
   }
@@ -306,14 +308,12 @@ export class UsersService {
       });
 
       // Revoke all sessions and personal access tokens
-      await prisma.session.updateMany({
+      await prisma.session.deleteMany({
         where: { userId: id },
-        data: { revokedAt: new Date() },
       });
 
-      await prisma.personalAccessToken.updateMany({
+      await prisma.personalAccessToken.deleteMany({
         where: { userId: id },
-        data: { revokedAt: new Date() },
       });
     });
   }

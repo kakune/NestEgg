@@ -18,7 +18,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import { UserRole } from '@prisma/client';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 interface RunSettlementDto {
   year: number;

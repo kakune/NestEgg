@@ -15,10 +15,10 @@ interface AuthenticatedRequest extends Request {
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
-  protected throwThrottlingException(
+  public async throwThrottlingException(
     context: ExecutionContext,
     throttlerLimitDetail: ThrottlerLimitDetail,
-  ): void {
+  ): Promise<void> {
     const response = context.switchToHttp().getResponse<Response>();
     const resetTime = Date.now() + throttlerLimitDetail.ttl * 1000;
 
@@ -28,34 +28,39 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
     response.setHeader('X-RateLimit-Reset', Math.ceil(resetTime / 1000));
     response.setHeader('Retry-After', String(throttlerLimitDetail.ttl));
 
-    throw new ThrottlerException({
-      code: 'RATE_LIMIT_EXCEEDED',
-      message: 'Too many requests',
-      details: {
-        limit: throttlerLimitDetail.limit,
-        window: `${throttlerLimitDetail.ttl} seconds`,
-        reset_at: new Date(resetTime).toISOString(),
-      },
-    });
+    // Using Promise.resolve to make this properly async
+    await Promise.resolve();
+
+    throw new ThrottlerException(
+      `Too many requests. Limit: ${throttlerLimitDetail.limit}, Window: ${throttlerLimitDetail.ttl} seconds`,
+    );
   }
 
-  protected getTracker(req: Request): string {
+  public getTracker(req: Request): Promise<string> {
     // Use IP address and user ID (if authenticated) for tracking
     const authenticatedReq = req as AuthenticatedRequest;
     const userId = authenticatedReq.user?.id;
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
-    return userId ? `${ip}:${userId}` : ip;
+    return Promise.resolve(userId ? `${ip}:${userId}` : ip);
   }
 
-  protected async handleRequest(
-    context: ExecutionContext,
-    limit: number,
-    ttl: number,
-  ): Promise<boolean> {
+  public async handleRequest(requestProps: {
+    context: ExecutionContext;
+    limit: number;
+    ttl: number;
+  }): Promise<boolean> {
+    const { context, limit, ttl } = requestProps;
     const response = context.switchToHttp().getResponse<Response>();
 
-    const result = await super.handleRequest(context, limit, ttl);
+    const result = await super.handleRequest({
+      ...requestProps,
+      throttler: { name: 'default', limit, ttl },
+      blockDuration: 0,
+      getTracker: (req: Record<string, unknown>) =>
+        this.getTracker(req as unknown as Request),
+      generateKey: () => 'key',
+    });
 
     // Set basic rate limit headers
     response.setHeader('X-RateLimit-Limit', String(limit));

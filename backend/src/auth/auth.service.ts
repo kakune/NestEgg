@@ -7,6 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '@prisma/client';
@@ -66,7 +67,7 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<SafeUser> {
-    const user = (await this.prismaService.prisma.user.findUnique({
+    const user = (await this.prismaService.prisma.user.findFirst({
       where: { email: email.toLowerCase() },
       select: {
         id: true,
@@ -101,8 +102,10 @@ export class AuthService {
     const session = await this.prismaService.prisma.session.create({
       data: {
         userId: user.id,
-        ipAddress: loginDto.ipAddress,
-        userAgent: loginDto.userAgent,
+        sessionData: JSON.stringify({
+          ipAddress: loginDto.ipAddress,
+          userAgent: loginDto.userAgent,
+        }),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
     });
@@ -134,7 +137,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
     // Check if user already exists
-    const existingUser = await this.prismaService.prisma.user.findUnique({
+    const existingUser = await this.prismaService.prisma.user.findFirst({
       where: { email: registerDto.email.toLowerCase() },
     });
 
@@ -188,8 +191,10 @@ export class AuthService {
     const session = await this.prismaService.prisma.session.create({
       data: {
         userId: user.id,
-        ipAddress: registerDto.ipAddress,
-        userAgent: registerDto.userAgent,
+        sessionData: JSON.stringify({
+          ipAddress: registerDto.ipAddress,
+          userAgent: registerDto.userAgent,
+        }),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
     });
@@ -214,9 +219,8 @@ export class AuthService {
   }
 
   async logout(sessionId: string): Promise<void> {
-    await this.prismaService.prisma.session.update({
+    await this.prismaService.prisma.session.delete({
       where: { id: sessionId },
-      data: { revokedAt: new Date() },
     });
   }
 
@@ -247,11 +251,14 @@ export class AuthService {
       ? new Date(Date.now() + createPatDto.expiresInDays * 24 * 60 * 60 * 1000)
       : null;
 
+    const patToken = this.generateRandomToken();
+
     const pat = await this.prismaService.prisma.personalAccessToken.create({
       data: {
         name: createPatDto.name,
+        token: patToken,
         userId: user.id,
-        scopes: createPatDto.scopes || ['read'],
+        abilities: createPatDto.scopes || ['read'],
         expiresAt,
       },
     });
@@ -264,9 +271,8 @@ export class AuthService {
       tokenType: 'pat',
     };
 
-    const token = this.jwtService.sign(payload, {
-      expiresIn: expiresAt ? undefined : '365d', // 1 year default if no expiration
-    });
+    const signOptions = expiresAt ? {} : { expiresIn: '365d' }; // 1 year default if no expiration
+    const token = this.jwtService.sign(payload, signOptions);
 
     return {
       token,
@@ -278,13 +284,9 @@ export class AuthService {
     userId: string,
     tokenId: string,
   ): Promise<void> {
-    await this.prismaService.prisma.personalAccessToken.update({
+    await this.prismaService.prisma.personalAccessToken.delete({
       where: {
         id: tokenId,
-        userId: userId,
-      },
-      data: {
-        revokedAt: new Date(),
       },
     });
   }
@@ -294,15 +296,9 @@ export class AuthService {
       where: { id: sessionId },
     });
 
-    if (!session || session.revokedAt || session.expiresAt < new Date()) {
+    if (!session || session.expiresAt < new Date()) {
       return false;
     }
-
-    // Update last active time
-    await this.prismaService.prisma.session.update({
-      where: { id: sessionId },
-      data: { lastActiveAt: new Date() },
-    });
 
     return true;
   }
@@ -325,5 +321,9 @@ export class AuthService {
       return parseInt(expiresIn.slice(0, -1)) * 86400;
     }
     return 86400; // Default 24 hours
+  }
+
+  private generateRandomToken(): string {
+    return crypto.randomBytes(64).toString('hex');
   }
 }

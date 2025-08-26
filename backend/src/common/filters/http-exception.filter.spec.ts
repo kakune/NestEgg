@@ -73,15 +73,15 @@ describe('HttpExceptionFilter', () => {
         code: string;
       }>;
       expect(details).toHaveLength(3);
-      expect(details[0].field).toBe('name');
-      expect(details[0].message).toBe('must be a string');
-      expect(details[0].code).toBe('VALIDATION_ERROR');
-      expect(details[1].field).toBe('email');
-      expect(details[1].message).toBe('must be a valid email');
-      expect(details[1].code).toBe('VALIDATION_ERROR');
-      expect(details[2].field).toBe('amount');
-      expect(details[2].message).toBe('must be a positive integer');
-      expect(details[2].code).toBe('INVALID_AMOUNT');
+      expect(details[0]?.field).toBe('name');
+      expect(details[0]?.message).toBe('must be a string');
+      expect(details[0]?.code).toBe('VALIDATION_ERROR');
+      expect(details[1]?.field).toBe('email');
+      expect(details[1]?.message).toBe('must be a valid email');
+      expect(details[1]?.code).toBe('VALIDATION_ERROR');
+      expect(details[2]?.field).toBe('amount');
+      expect(details[2]?.message).toBe('must be a positive integer');
+      expect(details[2]?.code).toBe('INVALID_AMOUNT');
     });
 
     it('should handle HttpException with simple message', () => {

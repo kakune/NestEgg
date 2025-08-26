@@ -53,10 +53,9 @@ export class SettlementsService {
       // Check if settlement is already finalized
       const existingSettlement = await prisma.settlement.findUnique({
         where: {
-          householdId_year_month: {
+          householdId_month: {
             householdId,
-            year: month.year,
-            month: month.month,
+            month: new Date(month.year, month.month - 1, 1),
           },
         },
       });
@@ -84,24 +83,46 @@ export class SettlementsService {
         (t) => t.type === 'EXPENSE' && t.shouldPay === 'HOUSEHOLD',
       );
       const weights = this.computeIncomeWeights(
-        incomes,
+        incomes.map((income) => ({
+          userId: income.userId,
+          allocatableYen: Number(income.allocatableYen),
+        })),
         policy.apportionmentZeroIncome,
       );
       const shares = this.apportionExpenses(
-        householdExpenses,
+        householdExpenses.map((expense) => ({
+          amountYen: Number(expense.amountYen),
+        })),
         weights,
         policy.rounding,
       );
 
       // 3. Calculate actual payments per user
-      const actualPayments = this.calculateActualPayments(householdExpenses);
+      const actualPayments = this.calculateActualPayments(
+        householdExpenses.map((t) => ({
+          amountYen: Number(t.amountYen),
+          payerUserId: t.payerUserId || '',
+          actorId: t.payerActorId,
+          userId: t.payerUserId,
+          shouldPay: t.shouldPay === 'HOUSEHOLD',
+        })),
+      );
       const householdDeltas = this.computeDeltas(actualPayments, shares);
 
       // 4. Build reimbursement matrix
       const personalExpenses = transactions.filter(
         (t) => t.type === 'EXPENSE' && t.shouldPay === 'USER',
       );
-      const reimbursements = this.buildReimbursementMatrix(personalExpenses);
+      const reimbursements = this.buildReimbursementMatrix(
+        personalExpenses.map((t) => ({
+          amountYen: Number(t.amountYen),
+          payerUserId: t.payerUserId || '',
+          shouldPayUserId: t.shouldPayUserId || '',
+          actorId: t.payerActorId,
+          userId: t.payerUserId,
+          shouldPay: t.shouldPay === 'USER',
+        })),
+      );
 
       // 5. Net settlement with greedy algorithm
       const balances = this.mergeBalances(householdDeltas, reimbursements);
@@ -205,7 +226,7 @@ export class SettlementsService {
         include: {
           lines: true,
         },
-        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        orderBy: [{ month: 'desc' }],
       });
     });
   }
@@ -241,9 +262,10 @@ export class SettlementsService {
     return prisma.income.findMany({
       where: {
         householdId,
-        year: month.year,
-        month: month.month,
-        deletedAt: null,
+        month: {
+          gte: new Date(month.year, month.month - 1, 1),
+          lt: new Date(month.year, month.month, 1),
+        },
       },
       include: {
         user: true,
@@ -303,9 +325,6 @@ export class SettlementsService {
   private apportionExpenses(
     expenses: Array<{
       amountYen: number;
-      actorId: string;
-      userId: string | null;
-      shouldPay: boolean;
     }>,
     weights: Map<string, number>,
     rounding: RoundingPolicy,
@@ -482,8 +501,7 @@ export class SettlementsService {
     await prisma.settlement.deleteMany({
       where: {
         householdId,
-        year: month.year,
-        month: month.month,
+        month: new Date(month.year, month.month - 1, 1),
         status: SettlementStatus.DRAFT,
       },
     });
@@ -492,12 +510,15 @@ export class SettlementsService {
     const settlement = await prisma.settlement.create({
       data: {
         householdId,
-        year: month.year,
-        month: month.month,
+        month: new Date(month.year, month.month - 1, 1),
         status: SettlementStatus.DRAFT,
-        createdAt: new Date(),
         lines: {
-          create: settlementLines,
+          create: settlementLines.map((line) => ({
+            fromUserId: line.fromUserId,
+            toUserId: line.toUserId,
+            amountYen: BigInt(line.amountYen),
+            description: line.description || '',
+          })),
         },
       },
       include: {

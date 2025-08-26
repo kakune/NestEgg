@@ -39,17 +39,14 @@ describe('IncomesService (Phase 3.2)', () => {
     id: 'income-1',
     userId: 'user-1',
     householdId: 'household-1',
-    grossIncomeYen: 500000,
-    deductionYen: 120000,
-    allocatableYen: 380000,
-    year: 2024,
-    month: 1,
-    description: 'January 2024 Salary',
-    sourceDocument: 'payroll-jan-2024.pdf',
-    sourceHash: 'hash-jan-2024',
+    grossYen: BigInt(500000),
+    deductionTaxYen: BigInt(120000),
+    deductionSocialYen: BigInt(0),
+    deductionOtherYen: BigInt(0),
+    allocatableYen: BigInt(380000),
+    month: new Date(2024, 0, 1), // January 2024
     createdAt: new Date('2024-01-01T09:00:00Z'),
     updatedAt: new Date('2024-01-01T09:00:00Z'),
-    deletedAt: null,
   };
 
   const mockIncomeWithDetails: IncomeWithDetails = {
@@ -120,10 +117,10 @@ describe('IncomesService (Phase 3.2)', () => {
         const expectedIncome = {
           ...mockIncome,
           id: 'income-2',
-          grossIncomeYen: 600000,
-          deductionYen: 150000,
-          allocatableYen: 450000, // 600000 - 150000
-          month: 2,
+          grossYen: BigInt(600000),
+          deductionTaxYen: BigInt(150000),
+          allocatableYen: BigInt(450000), // 600000 - 150000
+          month: new Date(2024, 1, 1), // February 2024
           description: 'February 2024 Salary',
         };
 
@@ -154,9 +151,9 @@ describe('IncomesService (Phase 3.2)', () => {
 
         const result = await service.create(createIncomeDto, mockAuthContext);
 
-        expect(result.allocatableYen).toBe(450000);
-        expect(result.grossIncomeYen - result.deductionYen).toBe(
-          result.allocatableYen,
+        expect(Number(result.allocatableYen)).toBe(450000);
+        expect(Number(result.grossYen) - Number(result.deductionTaxYen)).toBe(
+          Number(result.allocatableYen),
         );
       });
 
@@ -168,9 +165,9 @@ describe('IncomesService (Phase 3.2)', () => {
 
         const updatedIncome = {
           ...mockIncome,
-          grossIncomeYen: 550000,
-          deductionYen: 130000,
-          allocatableYen: 420000, // 550000 - 130000
+          grossYen: BigInt(550000),
+          deductionTaxYen: BigInt(130000),
+          allocatableYen: BigInt(420000), // 550000 - 130000
         };
 
         // Mock withContext for finding existing income
@@ -199,9 +196,9 @@ describe('IncomesService (Phase 3.2)', () => {
           mockAuthContext,
         );
 
-        expect(result.allocatableYen).toBe(420000);
-        expect(result.grossIncomeYen - result.deductionYen).toBe(
-          result.allocatableYen,
+        expect(Number(result.allocatableYen)).toBe(420000);
+        expect(Number(result.grossYen) - Number(result.deductionTaxYen)).toBe(
+          Number(result.allocatableYen),
         );
       });
 
@@ -216,10 +213,10 @@ describe('IncomesService (Phase 3.2)', () => {
 
         const expectedIncome = {
           ...mockIncome,
-          grossIncomeYen: 400000,
-          deductionYen: 0,
-          allocatableYen: 400000,
-          month: 3,
+          grossYen: BigInt(400000),
+          deductionTaxYen: BigInt(0),
+          allocatableYen: BigInt(400000),
+          month: new Date(2024, 2, 1), // March 2024
         };
 
         // Mock direct prisma access for user validation
@@ -249,8 +246,8 @@ describe('IncomesService (Phase 3.2)', () => {
 
         const result = await service.create(createIncomeDto, mockAuthContext);
 
-        expect(result.allocatableYen).toBe(400000);
-        expect(result.deductionYen).toBe(0);
+        expect(Number(result.allocatableYen)).toBe(400000);
+        expect(Number(result.deductionTaxYen)).toBe(0);
       });
 
       it('should handle maximum deduction scenarios', async () => {
@@ -355,9 +352,9 @@ describe('IncomesService (Phase 3.2)', () => {
 
         const expectedIncome = {
           ...mockIncome,
-          grossIncomeYen: 50000000,
-          deductionYen: 5000000,
-          allocatableYen: 45000000,
+          grossYen: BigInt(50000000),
+          deductionTaxYen: BigInt(5000000),
+          allocatableYen: BigInt(45000000),
         };
 
         // Mock direct prisma access for user validation
@@ -387,8 +384,8 @@ describe('IncomesService (Phase 3.2)', () => {
 
         const result = await service.create(createIncomeDto, mockAuthContext);
 
-        expect(result.grossIncomeYen).toBe(50000000);
-        expect(result.allocatableYen).toBe(45000000);
+        expect(Number(result.grossYen)).toBe(50000000);
+        expect(Number(result.allocatableYen)).toBe(45000000);
       });
     });
 

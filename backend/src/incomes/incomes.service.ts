@@ -80,25 +80,42 @@ export class IncomesService {
         where.userId = filters.userId;
       }
 
-      // Year filtering
-      if (filters.year !== undefined) {
-        where.year = filters.year;
-      }
+      // Year/Month filtering using the DateTime month field
+      if (filters.year !== undefined || filters.month !== undefined) {
+        const monthFilters: Record<string, Date> = {};
 
-      // Month filtering
-      if (filters.month !== undefined) {
-        where.month = filters.month;
+        if (filters.year !== undefined && filters.month !== undefined) {
+          // Specific year and month
+          const startDate = new Date(filters.year, filters.month - 1, 1);
+          const endDate = new Date(filters.year, filters.month, 0, 23, 59, 59);
+          monthFilters.gte = startDate;
+          monthFilters.lte = endDate;
+        } else if (filters.year !== undefined) {
+          // Entire year
+          const startDate = new Date(filters.year, 0, 1);
+          const endDate = new Date(filters.year, 11, 31, 23, 59, 59);
+          monthFilters.gte = startDate;
+          monthFilters.lte = endDate;
+        }
+
+        if (Object.keys(monthFilters).length > 0) {
+          where.month = monthFilters;
+        }
       }
 
       // Year range filtering
       if (filters.yearFrom !== undefined || filters.yearTo !== undefined) {
-        where.year = {};
+        const rangeFilters: Record<string, Date> = {};
         if (filters.yearFrom !== undefined) {
-          where.year.gte = filters.yearFrom;
+          rangeFilters.gte = new Date(filters.yearFrom, 0, 1);
         }
         if (filters.yearTo !== undefined) {
-          where.year.lte = filters.yearTo;
+          rangeFilters.lte = new Date(filters.yearTo, 11, 31, 23, 59, 59);
         }
+        where.month = {
+          ...((where.month as Record<string, unknown>) || {}),
+          ...rangeFilters,
+        };
       }
 
       // Allocatable amount range filtering
@@ -106,13 +123,14 @@ export class IncomesService {
         filters.minAllocatable !== undefined ||
         filters.maxAllocatable !== undefined
       ) {
-        where.allocatableYen = {};
+        const allocatableFilters: Record<string, number> = {};
         if (filters.minAllocatable !== undefined) {
-          where.allocatableYen.gte = filters.minAllocatable;
+          allocatableFilters.gte = filters.minAllocatable;
         }
         if (filters.maxAllocatable !== undefined) {
-          where.allocatableYen.lte = filters.maxAllocatable;
+          allocatableFilters.lte = filters.maxAllocatable;
         }
+        where.allocatableYen = allocatableFilters;
       }
 
       // Full-text search on description
@@ -199,13 +217,17 @@ export class IncomesService {
     authContext: AuthContext,
   ): Promise<Income | null> {
     return this.prismaService.withContext(authContext, async (prisma) => {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+
       return prisma.income.findFirst({
         where: {
           userId,
-          year,
-          month,
+          month: {
+            gte: startDate,
+            lte: endDate,
+          },
           householdId: authContext.householdId,
-          deletedAt: null,
         },
       });
     });
@@ -242,13 +264,12 @@ export class IncomesService {
       return prisma.income.create({
         data: {
           userId: createIncomeDto.userId,
-          grossIncomeYen: createIncomeDto.grossIncomeYen,
-          deductionYen: createIncomeDto.deductionYen,
+          grossYen: BigInt(createIncomeDto.grossIncomeYen),
+          deductionTaxYen: BigInt(createIncomeDto.deductionYen || 0),
+          deductionSocialYen: BigInt(0),
+          deductionOtherYen: BigInt(0),
           allocatableYen,
-          year: createIncomeDto.year,
-          month: createIncomeDto.month,
-          description: createIncomeDto.description,
-          sourceDocument: createIncomeDto.sourceDocument,
+          month: new Date(createIncomeDto.year, createIncomeDto.month - 1, 1),
           householdId: authContext.householdId,
         },
         include: {
@@ -286,9 +307,12 @@ export class IncomesService {
       updateIncomeDto.deductionYen !== undefined
     ) {
       const grossIncome =
-        updateIncomeDto.grossIncomeYen ?? Number(existingIncome.grossIncomeYen);
-      const deduction =
-        updateIncomeDto.deductionYen ?? Number(existingIncome.deductionYen);
+        updateIncomeDto.grossIncomeYen ?? Number(existingIncome.grossYen);
+      const totalDeduction =
+        Number(existingIncome.deductionTaxYen) +
+        Number(existingIncome.deductionSocialYen) +
+        Number(existingIncome.deductionOtherYen);
+      const deduction = updateIncomeDto.deductionYen ?? totalDeduction;
       allocatableYen = this.calculateAllocatableYen(grossIncome, deduction);
     }
 
@@ -297,10 +321,10 @@ export class IncomesService {
         where: { id },
         data: {
           ...(updateIncomeDto.grossIncomeYen !== undefined && {
-            grossIncomeYen: updateIncomeDto.grossIncomeYen,
+            grossYen: BigInt(updateIncomeDto.grossIncomeYen),
           }),
           ...(updateIncomeDto.deductionYen !== undefined && {
-            deductionYen: updateIncomeDto.deductionYen,
+            deductionTaxYen: BigInt(updateIncomeDto.deductionYen),
           }),
           ...(updateIncomeDto.description !== undefined && {
             description: updateIncomeDto.description,
@@ -327,9 +351,8 @@ export class IncomesService {
     await this.findOne(id, authContext); // Ensure income exists and belongs to household
 
     await this.prismaService.withContext(authContext, async (prisma) => {
-      await prisma.income.update({
+      await prisma.income.delete({
         where: { id },
-        data: { deletedAt: new Date() },
       });
     });
   }
@@ -382,16 +405,15 @@ export class IncomesService {
     // Bulk create valid incomes
     const dataToCreate = validDtos.map((dto) => ({
       userId: dto.userId,
-      grossIncomeYen: dto.grossIncomeYen,
-      deductionYen: dto.deductionYen,
+      grossYen: BigInt(dto.grossIncomeYen),
+      deductionTaxYen: BigInt(dto.deductionYen || 0),
+      deductionSocialYen: BigInt(0),
+      deductionOtherYen: BigInt(0),
       allocatableYen: this.calculateAllocatableYen(
         dto.grossIncomeYen,
-        dto.deductionYen,
+        dto.deductionYen || 0,
       ),
-      year: dto.year,
-      month: dto.month,
-      description: dto.description,
-      sourceDocument: dto.sourceDocument,
+      month: new Date(dto.year, dto.month - 1, 1),
       householdId: authContext.householdId,
     }));
 
@@ -429,7 +451,6 @@ export class IncomesService {
           where: {
             id: { in: ids },
             householdId: authContext.householdId,
-            deletedAt: null,
           },
           select: { id: true },
         });
@@ -454,12 +475,11 @@ export class IncomesService {
     const result = await this.prismaService.withContext(
       authContext,
       async (prisma) => {
-        return prisma.income.updateMany({
+        return prisma.income.deleteMany({
           where: {
             id: { in: validIds },
             householdId: authContext.householdId,
           },
-          data: { deletedAt: new Date() },
         });
       },
     );
@@ -496,21 +516,24 @@ export class IncomesService {
         where.userId = filters.userId;
       }
       if (filters.yearFrom !== undefined || filters.yearTo !== undefined) {
-        where.year = {};
+        const monthFilters: Record<string, Date> = {};
         if (filters.yearFrom !== undefined) {
-          where.year.gte = filters.yearFrom;
+          monthFilters.gte = new Date(filters.yearFrom, 0, 1);
         }
         if (filters.yearTo !== undefined) {
-          where.year.lte = filters.yearTo;
+          monthFilters.lte = new Date(filters.yearTo, 11, 31, 23, 59, 59);
         }
+        where.month = monthFilters;
       }
 
       const [aggregates, monthlyData] = await Promise.all([
         prisma.income.aggregate({
           where,
           _sum: {
-            grossIncomeYen: true,
-            deductionYen: true,
+            grossYen: true,
+            deductionTaxYen: true,
+            deductionSocialYen: true,
+            deductionOtherYen: true,
             allocatableYen: true,
           },
           _avg: {
@@ -522,26 +545,33 @@ export class IncomesService {
         prisma.income.findMany({
           where,
           select: {
-            year: true,
             month: true,
-            grossIncomeYen: true,
-            deductionYen: true,
+            grossYen: true,
+            deductionTaxYen: true,
+            deductionSocialYen: true,
+            deductionOtherYen: true,
             allocatableYen: true,
           },
-          orderBy: [{ year: 'desc' }, { month: 'desc' }],
+          orderBy: [{ month: 'desc' }],
         }),
       ]);
 
       return {
-        totalGrossIncome: Number(aggregates._sum.grossIncomeYen) || 0,
-        totalDeductions: Number(aggregates._sum.deductionYen) || 0,
+        totalGrossIncome: Number(aggregates._sum.grossYen) || 0,
+        totalDeductions:
+          (Number(aggregates._sum.deductionTaxYen) || 0) +
+          (Number(aggregates._sum.deductionSocialYen) || 0) +
+          (Number(aggregates._sum.deductionOtherYen) || 0),
         totalAllocatable: Number(aggregates._sum.allocatableYen) || 0,
         averageMonthlyIncome: Number(aggregates._avg.allocatableYen) || 0,
         monthlyIncomes: monthlyData.map((item) => ({
-          year: Number(item.year),
-          month: Number(item.month),
-          grossIncome: Number(item.grossIncomeYen),
-          deductions: Number(item.deductionYen),
+          year: item.month.getFullYear(),
+          month: item.month.getMonth() + 1,
+          grossIncome: Number(item.grossYen),
+          deductions:
+            (Number(item.deductionTaxYen) || 0) +
+            (Number(item.deductionSocialYen) || 0) +
+            (Number(item.deductionOtherYen) || 0),
           allocatable: Number(item.allocatableYen),
         })),
       };
@@ -550,18 +580,30 @@ export class IncomesService {
 
   async getHouseholdIncomeBreakdown(
     year: number,
-    month?: number,
     authContext: AuthContext,
+    month?: number,
   ): Promise<Record<string, unknown>> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const where: Record<string, unknown> = {
         householdId: authContext.householdId,
-        year,
-        deletedAt: null,
       };
 
+      // Filter by date range using the month DateTime field
       if (month !== undefined) {
-        where.month = month;
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59);
+        where.month = {
+          gte: startDate,
+          lte: endDate,
+        };
+      } else {
+        // Filter by entire year
+        const startDate = new Date(year, 0, 1);
+        const endDate = new Date(year, 11, 31, 23, 59, 59);
+        where.month = {
+          gte: startDate,
+          lte: endDate,
+        };
       }
 
       // Use database aggregation with groupBy to calculate totals per user
@@ -572,8 +614,10 @@ export class IncomesService {
             by: ['userId'],
             where,
             _sum: {
-              grossIncomeYen: true,
-              deductionYen: true,
+              grossYen: true,
+              deductionTaxYen: true,
+              deductionSocialYen: true,
+              deductionOtherYen: true,
               allocatableYen: true,
             },
           }),
@@ -582,8 +626,10 @@ export class IncomesService {
           prisma.income.aggregate({
             where,
             _sum: {
-              grossIncomeYen: true,
-              deductionYen: true,
+              grossYen: true,
+              deductionTaxYen: true,
+              deductionSocialYen: true,
+              deductionOtherYen: true,
               allocatableYen: true,
             },
           }),
@@ -594,8 +640,10 @@ export class IncomesService {
             select: {
               userId: true,
               month: true,
-              grossIncomeYen: true,
-              deductionYen: true,
+              grossYen: true,
+              deductionTaxYen: true,
+              deductionSocialYen: true,
+              deductionOtherYen: true,
               allocatableYen: true,
               user: {
                 select: {
@@ -622,19 +670,24 @@ export class IncomesService {
             },
           });
 
-          const userGrossIncome =
-            Number(userAggregate._sum.grossIncomeYen) || 0;
-          const userDeductions = Number(userAggregate._sum.deductionYen) || 0;
+          const userGrossIncome = Number(userAggregate._sum?.grossYen) || 0;
+          const userDeductions =
+            (Number(userAggregate._sum?.deductionTaxYen) || 0) +
+            (Number(userAggregate._sum?.deductionSocialYen) || 0) +
+            (Number(userAggregate._sum?.deductionOtherYen) || 0);
           const userAllocatable =
-            Number(userAggregate._sum.allocatableYen) || 0;
+            Number(userAggregate._sum?.allocatableYen) || 0;
 
           // Get monthly details for this user
           const userMonths = monthlyDetails
             .filter((income) => income.userId === userAggregate.userId)
             .map((income) => ({
-              month: Number(income.month),
-              grossIncome: Number(income.grossIncomeYen),
-              deductions: Number(income.deductionYen),
+              month: income.month.getMonth() + 1,
+              grossIncome: Number(income.grossYen),
+              deductions:
+                (Number(income.deductionTaxYen) || 0) +
+                (Number(income.deductionSocialYen) || 0) +
+                (Number(income.deductionOtherYen) || 0),
               allocatable: Number(income.allocatableYen),
             }));
 
@@ -660,9 +713,12 @@ export class IncomesService {
         month,
         users: userBreakdown,
         totals: {
-          grossIncome: Number(totalAggregates._sum.grossIncomeYen) || 0,
-          deductions: Number(totalAggregates._sum.deductionYen) || 0,
-          allocatable: Number(totalAggregates._sum.allocatableYen) || 0,
+          grossIncome: Number(totalAggregates._sum?.grossYen) || 0,
+          deductions:
+            (Number(totalAggregates._sum?.deductionTaxYen) || 0) +
+            (Number(totalAggregates._sum?.deductionSocialYen) || 0) +
+            (Number(totalAggregates._sum?.deductionOtherYen) || 0),
+          allocatable: Number(totalAggregates._sum?.allocatableYen) || 0,
         },
       };
     });
@@ -671,9 +727,9 @@ export class IncomesService {
   private calculateAllocatableYen(
     grossIncomeYen: number,
     deductionYen: number,
-  ): number {
+  ): bigint {
     const allocatable = grossIncomeYen - deductionYen;
-    return Math.max(0, allocatable); // Allocatable income cannot be negative
+    return BigInt(Math.max(0, allocatable)); // Allocatable income cannot be negative
   }
 
   private async validateIncome(
@@ -733,7 +789,9 @@ export class IncomesService {
     }
   }
 
-  private validateIncomeUpdate(mergedDto: Partial<CreateIncomeDto>): void {
+  private validateIncomeUpdate(
+    mergedDto: IncomeWithDetails & Partial<UpdateIncomeDto>,
+  ): void {
     const errors: string[] = [];
 
     // Validate amounts if provided
@@ -755,7 +813,11 @@ export class IncomesService {
       }
     }
 
-    if (mergedDto.deductionYen > mergedDto.grossIncomeYen) {
+    if (
+      mergedDto.deductionYen !== undefined &&
+      mergedDto.grossIncomeYen !== undefined &&
+      mergedDto.deductionYen > mergedDto.grossIncomeYen
+    ) {
       errors.push('Deduction cannot exceed gross income');
     }
 

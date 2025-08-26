@@ -10,8 +10,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  CategoriesService,
+import { CategoriesService } from './categories.service';
+import type {
   CreateCategoryDto,
   UpdateCategoryDto,
   CategoryWithChildren,
@@ -19,8 +19,8 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { Category } from '@prisma/client';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { Category } from '@prisma/client';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 @Controller('categories')
 @UseGuards(JwtAuthGuard, RolesGuard)

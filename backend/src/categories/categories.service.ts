@@ -4,13 +4,13 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Category } from '@prisma/client';
+import { Category, TransactionType } from '@prisma/client';
 import { AuthContext } from '../common/interfaces/auth-context.interface';
 
 export interface CreateCategoryDto {
   name: string;
   parentId?: string;
-  description?: string;
+  type: TransactionType;
 }
 
 export interface UpdateCategoryDto {
@@ -28,7 +28,7 @@ export interface CategoryStatistics {
   category: {
     id: string;
     name: string;
-    parent?: Category;
+    parent?: Category | undefined;
   };
   statistics: {
     directTransactions: number;
@@ -92,12 +92,12 @@ export class CategoriesService {
           transactions: {
             select: {
               id: true,
-              amount: true,
-              description: true,
-              date: true,
+              amountYen: true,
+              note: true,
+              occurredOn: true,
             },
             take: 10, // Latest 10 transactions
-            orderBy: { date: 'desc' },
+            orderBy: { occurredOn: 'desc' },
           },
         },
       });
@@ -120,7 +120,6 @@ export class CategoriesService {
         where: {
           id: createCategoryDto.parentId,
           householdId: authContext.householdId,
-          deletedAt: null,
         },
       });
 
@@ -149,7 +148,6 @@ export class CategoriesService {
           name: createCategoryDto.name,
           parentId: createCategoryDto.parentId || null,
           householdId: authContext.householdId,
-          deletedAt: null,
         },
       },
     );
@@ -164,8 +162,8 @@ export class CategoriesService {
       return prisma.category.create({
         data: {
           name: createCategoryDto.name,
-          parentId: createCategoryDto.parentId,
-          description: createCategoryDto.description,
+          parentId: createCategoryDto.parentId || null,
+          type: createCategoryDto.type,
           householdId: authContext.householdId,
         },
         include: {
@@ -219,7 +217,6 @@ export class CategoriesService {
           where: {
             id: updateCategoryDto.parentId,
             householdId: authContext.householdId,
-            deletedAt: null,
           },
         });
 
@@ -248,7 +245,6 @@ export class CategoriesService {
             parentId: parentId || null,
             householdId: authContext.householdId,
             id: { not: id },
-            deletedAt: null,
           },
         });
 
@@ -286,7 +282,6 @@ export class CategoriesService {
     const childrenCount = await this.prismaService.prisma.category.count({
       where: {
         parentId: id,
-        deletedAt: null,
       },
     });
 
@@ -308,9 +303,8 @@ export class CategoriesService {
     }
 
     await this.prismaService.withContext(authContext, async (prisma) => {
-      await prisma.category.update({
+      await prisma.category.delete({
         where: { id },
-        data: { deletedAt: new Date() },
       });
     });
   }
@@ -390,19 +384,17 @@ export class CategoriesService {
       // Try to use PostgreSQL Recursive CTE for efficient hierarchy traversal
       const descendants = await this.prismaService.prisma.$queryRaw<Category[]>`
         WITH RECURSIVE category_descendants AS (
-          SELECT id, name, "parentId", description, "householdId", "createdAt", "updatedAt", "deletedAt"
-          FROM "Category"
+          SELECT id, name, "parentId", type, "householdId", "createdAt", "updatedAt"
+          FROM "categories"
           WHERE "parentId" = ${categoryId}
             AND "householdId" = ${authContext.householdId}
-            AND "deletedAt" IS NULL
           
           UNION ALL
           
-          SELECT c.id, c.name, c."parentId", c.description, c."householdId", c."createdAt", c."updatedAt", c."deletedAt"
-          FROM "Category" c
+          SELECT c.id, c.name, c."parentId", c.type, c."householdId", c."createdAt", c."updatedAt"
+          FROM "categories" c
           INNER JOIN category_descendants cd ON c."parentId" = cd.id
           WHERE c."householdId" = ${authContext.householdId}
-            AND c."deletedAt" IS NULL
         )
         SELECT * FROM category_descendants;
       `;
@@ -424,7 +416,6 @@ export class CategoriesService {
           where: {
             parentId,
             householdId: authContext.householdId,
-            deletedAt: null,
           },
         });
 
@@ -455,7 +446,7 @@ export class CategoriesService {
         // Total amount of transactions
         prisma.transaction.aggregate({
           where: { categoryId: id },
-          _sum: { amount: true },
+          _sum: { amountYen: true },
           _count: true,
         }),
 
@@ -470,29 +461,29 @@ export class CategoriesService {
       for (const descendant of descendants) {
         const descendantStats = await prisma.transaction.aggregate({
           where: { categoryId: descendant.id },
-          _sum: { amount: true },
+          _sum: { amountYen: true },
           _count: true,
         });
 
         descendantTransactionCount += Number(descendantStats._count) || 0;
-        descendantTotalAmount += Number(descendantStats._sum.amount) || 0;
+        descendantTotalAmount += Number(descendantStats._sum.amountYen) || 0;
       }
 
       return {
         category: {
           id: category.id,
           name: category.name,
-          parent: category.parent,
+          parent: category.parent || undefined,
         },
         statistics: {
           directTransactions: transactionCount || 0,
-          directAmount: Number(totalAmount._sum.amount) || 0,
+          directAmount: Number(totalAmount._sum.amountYen) || 0,
           descendantTransactions: descendantTransactionCount,
           descendantAmount: descendantTotalAmount,
           totalTransactions:
             (transactionCount || 0) + descendantTransactionCount,
           totalAmount:
-            (Number(totalAmount._sum.amount) || 0) + descendantTotalAmount,
+            (Number(totalAmount._sum.amountYen) || 0) + descendantTotalAmount,
           childrenCount: descendants.length,
         },
       };

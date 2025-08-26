@@ -2,12 +2,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { mockDeep, MockProxy, mockReset } from 'jest-mock-extended';
-import { TransactionType, UserRole, PrismaClient } from '@prisma/client';
+import {
+  TransactionType,
+  UserRole,
+  PrismaClient,
+  Transaction,
+  ActorKind,
+} from '@prisma/client';
 
 import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { ActorsService } from '../actors/actors.service';
-import { CategoriesService } from '../categories/categories.service';
+import { ActorsService, ActorWithUser } from '../actors/actors.service';
+import {
+  CategoriesService,
+  CategoryWithChildren,
+} from '../categories/categories.service';
 import {
   CreateTransactionDto,
   UpdateTransactionDto,
@@ -33,24 +42,24 @@ describe('TransactionsService (Phase 3.1)', () => {
   const mockTransaction = {
     id: 'transaction-1',
     householdId: 'household-1',
-    actorId: 'actor-1',
-    categoryId: 'category-1',
+    payer_actor_id: 'actor-1',
+    category_id: 'category-1',
     payerUserId: 'user-1',
     shouldPayUserId: 'user-1',
-    amount: -5000,
+    amountYen: BigInt(-5000),
     type: TransactionType.EXPENSE,
-    description: 'Test Expense',
-    date: new Date('2024-01-15'),
+    note: 'Test Expense',
+    occurred_on: '2024-01-15',
     tags: ['food', 'restaurant'],
     notes: 'Dinner with friends',
-    shouldPay: false,
-    sourceHash: 'source-hash-1',
+    should_pay: 'USER',
+    source_hash: 'source-hash-1',
     createdAt: new Date('2024-01-15T10:00:00Z'),
     updatedAt: new Date('2024-01-15T10:00:00Z'),
     deletedAt: null,
   };
 
-  const mockTransactionWithDetails: TransactionWithDetails = {
+  const mockTransactionWithDetails = {
     ...mockTransaction,
     category: {
       id: 'category-1',
@@ -60,26 +69,47 @@ describe('TransactionsService (Phase 3.1)', () => {
         name: 'Living Expenses',
       },
     },
-    actor: {
+    payerActor: {
       id: 'actor-1',
       name: 'User 1',
-      type: 'USER',
+      kind: 'USER',
+    },
+  } as unknown as TransactionWithDetails;
+
+  const mockActor: ActorWithUser = {
+    id: 'actor-1',
+    name: 'User 1',
+    kind: ActorKind.USER,
+    householdId: 'household-1',
+    userId: 'user-1',
+    createdAt: new Date('2023-01-01'),
+    updatedAt: new Date('2023-01-01'),
+    isActive: true,
+    user: {
+      id: 'user-1',
+      name: 'User 1',
+      email: 'user1@example.com',
     },
   };
 
-  const mockActor = {
-    id: 'actor-1',
-    name: 'User 1',
-    type: 'USER',
-  };
-
-  const mockCategory = {
+  const mockCategory: CategoryWithChildren = {
     id: 'category-1',
     name: 'Food & Dining',
+    type: TransactionType.EXPENSE,
+    householdId: 'household-1',
+    createdAt: new Date('2023-01-01'),
+    updatedAt: new Date('2023-01-01'),
+    parentId: 'parent-category-1',
     parent: {
       id: 'parent-category-1',
       name: 'Living Expenses',
+      type: TransactionType.EXPENSE,
+      householdId: 'household-1',
+      createdAt: new Date('2023-01-01'),
+      updatedAt: new Date('2023-01-01'),
+      parentId: null,
     },
+    children: [],
   };
 
   beforeEach(async () => {
@@ -131,12 +161,13 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Amount Validation', () => {
       it('should reject non-integer amounts', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: 100.5, // Invalid: non-integer
+          amount_yen: 100.5, // Invalid: non-integer
           type: TransactionType.EXPENSE,
-          description: 'Test transaction',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test transaction',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         await expect(
@@ -146,12 +177,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject zero amounts', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: 0, // Invalid: zero amount
+          amount_yen: 0, // Invalid: zero amount
           type: TransactionType.EXPENSE,
-          description: 'Test transaction',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test transaction',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         await expect(
@@ -161,12 +193,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should accept negative amounts for expenses', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock successful validation dependencies
@@ -182,13 +215,13 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
                 create: jest.fn().mockResolvedValue(mockTransaction),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -196,24 +229,26 @@ describe('TransactionsService (Phase 3.1)', () => {
           mockAuthContext,
         );
 
-        expect(result.amount).toBe(-5000);
+        expect(Number(result.amountYen)).toBe(-5000);
         expect(result.type).toBe(TransactionType.EXPENSE);
       });
 
       it('should accept positive amounts for income', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: 50000,
+          amount_yen: 50000,
           type: TransactionType.INCOME,
-          description: 'Test income',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test income',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         const incomeTransaction = {
           ...mockTransaction,
-          amount: 50000,
+          amountYen: BigInt(50000),
           type: TransactionType.INCOME,
+          shouldPay: 'USER',
         };
 
         // Mock successful validation dependencies
@@ -229,13 +264,13 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
                 create: jest.fn().mockResolvedValue(incomeTransaction),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -243,7 +278,7 @@ describe('TransactionsService (Phase 3.1)', () => {
           mockAuthContext,
         );
 
-        expect(result.amount).toBe(50000);
+        expect(Number(result.amountYen)).toBe(50000);
         expect(result.type).toBe(TransactionType.INCOME);
       });
     });
@@ -251,12 +286,13 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Should Pay Business Rules', () => {
       it('should default shouldPay to true for expenses', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock successful validation dependencies
@@ -272,7 +308,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
@@ -281,7 +317,7 @@ describe('TransactionsService (Phase 3.1)', () => {
                   shouldPay: true,
                 }),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -294,19 +330,20 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should default shouldPay to false for income', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: 50000,
+          amount_yen: 50000,
           type: TransactionType.INCOME,
-          description: 'Test income',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test income',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         const incomeTransaction = {
           ...mockTransaction,
-          amount: 50000,
+          amountYen: BigInt(50000),
           type: TransactionType.INCOME,
-          shouldPay: false,
+          shouldPay: 'USER',
         };
 
         // Mock successful validation dependencies
@@ -322,13 +359,13 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
                 create: jest.fn().mockResolvedValue(incomeTransaction),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -336,18 +373,18 @@ describe('TransactionsService (Phase 3.1)', () => {
           mockAuthContext,
         );
 
-        expect(result.shouldPay).toBe(false);
+        expect(result.shouldPay).toBe('USER');
       });
 
       it('should allow explicit shouldPay override', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
-          shouldPay: false, // Explicit override
+          note: 'Test expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'USER', // Explicit override
         };
 
         // Mock successful validation dependencies
@@ -363,16 +400,16 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
                 create: jest.fn().mockResolvedValue({
                   ...mockTransaction,
-                  shouldPay: false,
+                  shouldPay: 'USER',
                 }),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -380,19 +417,20 @@ describe('TransactionsService (Phase 3.1)', () => {
           mockAuthContext,
         );
 
-        expect(result.shouldPay).toBe(false);
+        expect(result.shouldPay).toBe('USER');
       });
     });
 
     describe('Category-Type Consistency', () => {
       it('should validate actor belongs to same household', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test Expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test Expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock category validation success
@@ -410,12 +448,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should validate category belongs to same household', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test Expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test Expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock actor validation success
@@ -433,12 +472,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject transaction with non-existent actor', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test Expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'non-existent-actor',
+          note: 'Test Expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'non-existent-actor',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock category validation success
@@ -456,12 +496,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject transaction with non-existent category', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test Expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'non-existent-category',
-          actorId: 'actor-1',
+          note: 'Test Expense',
+          occurred_on: '2024-01-15',
+          category_id: 'non-existent-category',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock actor validation success
@@ -481,12 +522,13 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Tag Validation', () => {
       it('should reject more than 10 tags', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test transaction',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test transaction',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
           tags: Array(11).fill('tag') as string[], // Invalid: 11 tags
         };
 
@@ -497,12 +539,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject tags longer than 50 characters', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test transaction',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test transaction',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
           tags: ['a'.repeat(51)], // Invalid: tag too long
         };
 
@@ -513,12 +556,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should accept valid tags', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test transaction',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test transaction',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
           tags: ['food', 'restaurant', 'business'],
         };
 
@@ -535,7 +579,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
@@ -544,7 +588,7 @@ describe('TransactionsService (Phase 3.1)', () => {
                   tags: ['food', 'restaurant', 'business'],
                 }),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -562,12 +606,13 @@ describe('TransactionsService (Phase 3.1)', () => {
         futureDate.setDate(futureDate.getDate() + 30);
 
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test transaction',
-          date: futureDate,
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test transaction',
+          occurred_on: futureDate.toISOString().split('T')[0]!,
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         await expect(
@@ -577,12 +622,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject empty description', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: '', // Invalid: empty description
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: '', // Invalid: empty description
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         await expect(
@@ -592,12 +638,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject description longer than 500 characters', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'a'.repeat(501), // Invalid: too long
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'a'.repeat(501), // Invalid: too long
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         await expect(
@@ -607,13 +654,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
       it('should reject notes longer than 1000 characters', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Valid description',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
-          notes: 'a'.repeat(1001), // Invalid: notes too long
+          note: 'a'.repeat(1001), // Invalid: notes too long
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         await expect(
@@ -627,15 +674,14 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Create Operations', () => {
       it('should create transaction with all fields successfully', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test Expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Dinner with friends',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
           tags: ['food', 'restaurant'],
-          notes: 'Dinner with friends',
-          shouldPay: false,
+          should_pay: 'USER',
         };
 
         // Mock successful validation dependencies
@@ -651,13 +697,17 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
-                create: jest.fn().mockResolvedValue(mockTransaction),
+                create: jest.fn().mockResolvedValue({
+                  ...mockTransaction,
+                  note: 'Dinner with friends',
+                  shouldPay: 'USER',
+                }),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -666,29 +716,29 @@ describe('TransactionsService (Phase 3.1)', () => {
         );
 
         expect(result).toMatchObject({
-          amount: -5000,
+          amountYen: BigInt(-5000),
           type: TransactionType.EXPENSE,
-          description: 'Test Expense',
+          note: 'Dinner with friends',
           tags: ['food', 'restaurant'],
-          notes: 'Dinner with friends',
-          shouldPay: false,
+          shouldPay: 'USER',
         });
       });
 
       it('should create transaction with minimal required fields', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -3000,
+          amount_yen: -3000,
           type: TransactionType.EXPENSE,
-          description: 'Simple expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Simple expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         const minimalTransaction = {
           ...mockTransaction,
-          amount: -3000,
-          description: 'Simple expense',
+          amountYen: BigInt(-3000),
+          note: 'Simple expense',
           tags: [],
           notes: null,
         };
@@ -706,13 +756,13 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
                 create: jest.fn().mockResolvedValue(minimalTransaction),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -720,19 +770,20 @@ describe('TransactionsService (Phase 3.1)', () => {
           mockAuthContext,
         );
 
-        expect(result.amount).toBe(-3000);
-        expect(result.description).toBe('Simple expense');
+        expect(Number(result.amountYen)).toBe(-3000);
+        expect(result.note).toBe('Simple expense');
         expect(result.tags).toEqual([]);
       });
 
       it('should generate source hash for duplicate detection', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
+          note: 'Test expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock successful validation dependencies
@@ -748,7 +799,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementation(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
@@ -757,7 +808,7 @@ describe('TransactionsService (Phase 3.1)', () => {
                   sourceHash: 'generated-hash',
                 }),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.create(
@@ -767,18 +818,19 @@ describe('TransactionsService (Phase 3.1)', () => {
 
         expect(result.sourceHash).toBeDefined();
         expect(typeof result.sourceHash).toBe('string');
-        expect(result.sourceHash.length).toBeGreaterThan(0);
+        expect(result.sourceHash!.length).toBeGreaterThan(0);
       });
 
       it('should prevent duplicate transactions with same source hash', async () => {
         const createTransactionDto: CreateTransactionDto = {
-          amount: -5000,
+          amount_yen: -5000,
           type: TransactionType.EXPENSE,
-          description: 'Test expense',
-          date: new Date('2024-01-15'),
-          categoryId: 'category-1',
-          actorId: 'actor-1',
-          sourceHash: 'existing-hash',
+          note: 'Test expense',
+          occurred_on: '2024-01-15',
+          category_id: 'category-1',
+          payer_actor_id: 'actor-1',
+          source_hash: 'existing-hash',
+          should_pay: 'HOUSEHOLD',
         };
 
         // Mock successful validation dependencies
@@ -803,7 +855,7 @@ describe('TransactionsService (Phase 3.1)', () => {
           (
             authContext: AuthContext,
             callback: (
-              prisma: MockPrismaClient,
+              prisma: MockProxy<PrismaClient>,
             ) => Promise<TransactionWithDetails>,
           ) =>
             callback({
@@ -812,14 +864,14 @@ describe('TransactionsService (Phase 3.1)', () => {
                   .fn()
                   .mockResolvedValue(mockTransactionWithDetails),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.findOne('transaction-1', mockAuthContext);
 
         expect(result).toEqual(mockTransactionWithDetails);
         expect(result.category).toBeDefined();
-        expect(result.actor).toBeDefined();
+        expect(result.payerActor).toBeDefined();
       });
 
       it('should throw NotFoundException when transaction not found', async () => {
@@ -828,14 +880,14 @@ describe('TransactionsService (Phase 3.1)', () => {
           (
             authContext: AuthContext,
             callback: (
-              prisma: MockPrismaClient,
+              prisma: MockProxy<PrismaClient>,
             ) => Promise<TransactionWithDetails | null>,
           ) =>
             callback({
               transaction: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         await expect(
@@ -857,14 +909,14 @@ describe('TransactionsService (Phase 3.1)', () => {
           (
             authContext: AuthContext,
             callback: (
-              prisma: MockPrismaClient,
+              prisma: MockProxy<PrismaClient>,
             ) => Promise<TransactionWithDetails[]>,
           ) =>
             callback({
               transaction: {
                 findMany: jest.fn().mockResolvedValue(transactions),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.findAll(filters, mockAuthContext);
@@ -877,15 +929,15 @@ describe('TransactionsService (Phase 3.1)', () => {
     describe('Update Operations', () => {
       it('should update transaction successfully', async () => {
         const updateTransactionDto: UpdateTransactionDto = {
-          amount: -7000,
-          description: 'Updated expense',
+          amount_yen: -7000,
+          note: 'Updated expense',
           tags: ['updated', 'expense'],
         };
 
         const updatedTransaction = {
           ...mockTransaction,
-          amount: -7000,
-          description: 'Updated expense',
+          amountYen: BigInt(-7000),
+          note: 'Updated expense',
           tags: ['updated', 'expense'],
         };
 
@@ -894,7 +946,7 @@ describe('TransactionsService (Phase 3.1)', () => {
           (
             authContext: AuthContext,
             callback: (
-              prisma: MockPrismaClient,
+              prisma: MockProxy<PrismaClient>,
             ) => Promise<TransactionWithDetails>,
           ) =>
             callback({
@@ -903,7 +955,7 @@ describe('TransactionsService (Phase 3.1)', () => {
                   .fn()
                   .mockResolvedValue(mockTransactionWithDetails),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         // Mock successful validation dependencies
@@ -914,13 +966,13 @@ describe('TransactionsService (Phase 3.1)', () => {
         (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
           ) =>
             callback({
               transaction: {
                 update: jest.fn().mockResolvedValue(updatedTransaction),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         const result = await service.update(
@@ -929,8 +981,8 @@ describe('TransactionsService (Phase 3.1)', () => {
           mockAuthContext,
         );
 
-        expect(result.amount).toBe(-7000);
-        expect(result.description).toBe('Updated expense');
+        expect(Number(result.amountYen)).toBe(-7000);
+        expect(result.note).toBe('Updated expense');
         expect(result.tags).toEqual(['updated', 'expense']);
       });
     });
@@ -942,7 +994,7 @@ describe('TransactionsService (Phase 3.1)', () => {
           (
             authContext: AuthContext,
             callback: (
-              prisma: MockPrismaClient,
+              prisma: MockProxy<PrismaClient>,
             ) => Promise<TransactionWithDetails>,
           ) =>
             callback({
@@ -951,14 +1003,14 @@ describe('TransactionsService (Phase 3.1)', () => {
                   .fn()
                   .mockResolvedValue(mockTransactionWithDetails),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         // Mock withContext for soft deleting transaction
         (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
           (
             authContext: AuthContext,
-            callback: (prisma: MockPrismaClient) => Promise<void>,
+            callback: (prisma: MockProxy<PrismaClient>) => Promise<void>,
           ) =>
             callback({
               transaction: {
@@ -967,7 +1019,7 @@ describe('TransactionsService (Phase 3.1)', () => {
                   deletedAt: new Date(),
                 }),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         await expect(
@@ -981,14 +1033,14 @@ describe('TransactionsService (Phase 3.1)', () => {
           (
             authContext: AuthContext,
             callback: (
-              prisma: MockPrismaClient,
+              prisma: MockProxy<PrismaClient>,
             ) => Promise<TransactionWithDetails | null>,
           ) =>
             callback({
               transaction: {
                 findFirst: jest.fn().mockResolvedValue(null),
               },
-            } as MockPrismaClient),
+            } as unknown as MockProxy<PrismaClient>),
         );
 
         await expect(
@@ -1041,12 +1093,13 @@ describe('TransactionsService (Phase 3.1)', () => {
 
     it('should handle invalid transaction type-amount combination', async () => {
       const createTransactionDto: CreateTransactionDto = {
-        amount: 5000, // Positive amount
+        amount_yen: 5000, // Positive amount
         type: TransactionType.EXPENSE, // But marked as expense
-        description: 'Invalid transaction',
-        date: new Date('2024-01-15'),
-        categoryId: 'category-1',
-        actorId: 'actor-1',
+        note: 'Invalid transaction',
+        occurred_on: '2024-01-15',
+        category_id: 'category-1',
+        payer_actor_id: 'actor-1',
+        should_pay: 'HOUSEHOLD',
       };
 
       await expect(
@@ -1056,13 +1109,14 @@ describe('TransactionsService (Phase 3.1)', () => {
 
     it('should handle concurrent transaction creation attempts', async () => {
       const createTransactionDto: CreateTransactionDto = {
-        amount: -5000,
+        amount_yen: -5000,
         type: TransactionType.EXPENSE,
-        description: 'Test expense',
-        date: new Date('2024-01-15'),
-        categoryId: 'category-1',
-        actorId: 'actor-1',
-        sourceHash: 'concurrent-hash',
+        note: 'Test expense',
+        occurred_on: '2024-01-15',
+        category_id: 'category-1',
+        payer_actor_id: 'actor-1',
+        source_hash: 'concurrent-hash',
+        should_pay: 'HOUSEHOLD',
       };
 
       // Mock successful validation dependencies
@@ -1078,13 +1132,13 @@ describe('TransactionsService (Phase 3.1)', () => {
       (mockPrismaService.withContext as jest.Mock).mockImplementationOnce(
         (
           authContext: AuthContext,
-          callback: (prisma: MockPrismaClient) => Promise<MockTransaction>,
+          callback: (prisma: MockProxy<PrismaClient>) => Promise<Transaction>,
         ) =>
           callback({
             transaction: {
               create: jest.fn().mockResolvedValue(mockTransaction),
             },
-          } as MockPrismaClient),
+          } as unknown as MockProxy<PrismaClient>),
       );
 
       const firstResult = await service.create(

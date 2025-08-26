@@ -11,10 +11,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly configService: ConfigService,
     private readonly prismaService: PrismaService,
   ) {
+    const secret = configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error('JWT_SECRET is required');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET'),
+      secretOrKey: secret,
     });
   }
 
@@ -42,15 +46,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         where: { id: payload.sessionId },
       });
 
-      if (!session || session.revokedAt || session.expiresAt < new Date()) {
+      if (!session || session.expiresAt < new Date()) {
         throw new UnauthorizedException('Session invalid or expired');
       }
-
-      // Update last active time
-      await this.prismaService.prisma.session.update({
-        where: { id: payload.sessionId },
-        data: { lastActiveAt: new Date() },
-      });
     }
 
     // For personal access tokens, validate token
@@ -59,7 +57,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         {
           where: {
             userId: payload.sub,
-            revokedAt: null,
             OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
           },
         },

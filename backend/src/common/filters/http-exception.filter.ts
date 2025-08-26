@@ -53,7 +53,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           details = (responseObj.message as string[]).map((msg: string) => {
             // Parse validation error messages
             const fieldMatch = msg.match(/^(\w+)\s+(.+)/);
-            if (fieldMatch) {
+            if (fieldMatch && fieldMatch[1] && fieldMatch[2]) {
               return {
                 field: fieldMatch[1],
                 message: fieldMatch[2],

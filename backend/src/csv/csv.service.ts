@@ -1,10 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  TransactionsService,
-  CreateTransactionDto,
-} from '../transactions/transactions.service';
-import { IncomesService, CreateIncomeDto } from '../incomes/incomes.service';
+import { TransactionsService } from '../transactions/transactions.service';
+import { CreateTransactionDto } from '../transactions/dto/create-transaction.dto';
+import { IncomesService } from '../incomes/incomes.service';
+import type { CreateIncomeDto } from '../incomes/incomes.service';
 import { ActorsService } from '../actors/actors.service';
 import { CategoriesService } from '../categories/categories.service';
 import { UserRole, TransactionType } from '@prisma/client';
@@ -24,14 +23,35 @@ interface CsvRow {
 
 // Interface for mapped row data
 interface MappedRowData {
-  amount?: string;
-  description?: string;
-  date?: string;
-  category?: string;
-  actor?: string;
+  // Transaction fields
+  amount_yen?: string | number;
+  note?: string;
+  occurred_on?: string;
+  category_id?: string;
+  payer_actor_id?: string;
   type?: string;
-  notes?: string;
-  [key: string]: string | undefined;
+  should_pay?: string;
+  tags?: string[];
+  source_hash?: string;
+  // Income fields
+  userId?: string;
+  grossIncomeYen?: string | number;
+  grossYen?: string | number;
+  deductionYen?: string | number;
+  deductionTaxYen?: string | number;
+  year?: string | number;
+  month?: string | number;
+  description?: string;
+  sourceDocument?: string;
+  // Legacy field names for backward compatibility
+  amountYen?: string;
+  amount?: string;
+  date?: string;
+  occurredOn?: string;
+  categoryId?: string;
+  payerActorId?: string;
+  shouldPay?: string;
+  [key: string]: string | number | string[] | undefined;
 }
 
 export interface FieldMapping {
@@ -133,7 +153,7 @@ export class CsvService {
       try {
         const mappedData = this.mapRowData(row, fieldMapping);
         const validationResult = await this.validateTransactionRow(
-          mappedData,
+          mappedData as Record<string, string | number | boolean | Date | null>,
           authContext,
         );
 
@@ -141,7 +161,26 @@ export class CsvService {
           preview.validRows++;
 
           // Check for duplicates
-          const sourceHash = this.generateTransactionHash(mappedData);
+          const sourceHash = this.generateTransactionHash({
+            amountYen: parseFloat(
+              String(
+                mappedData.amount_yen ||
+                  mappedData.amountYen ||
+                  mappedData.amount ||
+                  '0',
+              ),
+            ),
+            occurredOn: new Date(
+              mappedData.occurred_on ||
+                mappedData.occurredOn ||
+                mappedData.date ||
+                '',
+            ),
+            note: mappedData.note || mappedData.description || '',
+            payerActorId:
+              mappedData.payer_actor_id || mappedData.payerActorId || '',
+            categoryId: mappedData.category_id || mappedData.categoryId || '',
+          });
           if (
             existingHashes.has(sourceHash) ||
             duplicateHashes.has(sourceHash)
@@ -158,7 +197,7 @@ export class CsvService {
           }
 
           if (preview.sampleData.length < 5) {
-            preview.sampleData.push(mappedData);
+            preview.sampleData.push(mappedData as Record<string, string>);
           }
         } else {
           preview.invalidRows++;
@@ -222,7 +261,7 @@ export class CsvService {
       try {
         const mappedData = this.mapRowData(row, fieldMapping);
         const validationResult = await this.validateTransactionRow(
-          mappedData,
+          mappedData as Record<string, string | number | boolean | Date | null>,
           authContext,
         );
 
@@ -237,7 +276,26 @@ export class CsvService {
           continue;
         }
 
-        const sourceHash = this.generateTransactionHash(mappedData);
+        const sourceHash = this.generateTransactionHash({
+          amountYen: parseFloat(
+            String(
+              mappedData.amount_yen ||
+                mappedData.amountYen ||
+                mappedData.amount ||
+                '0',
+            ),
+          ),
+          occurredOn: new Date(
+            mappedData.occurred_on ||
+              mappedData.occurredOn ||
+              mappedData.date ||
+              '',
+          ),
+          note: mappedData.note || mappedData.description || '',
+          payerActorId:
+            mappedData.payer_actor_id || mappedData.payerActorId || '',
+          categoryId: mappedData.category_id || mappedData.categoryId || '',
+        });
 
         if (existingHashes.has(sourceHash) || processedHashes.has(sourceHash)) {
           result.duplicates++;
@@ -252,10 +310,9 @@ export class CsvService {
           continue;
         }
 
-        validTransactions.push({
-          ...mappedData,
-          sourceHash,
-        } as CreateTransactionDto);
+        validTransactions.push(
+          this.convertToCreateTransactionDto(mappedData, sourceHash),
+        );
         processedHashes.add(sourceHash);
       } catch (error: unknown) {
         result.failed++;
@@ -306,19 +363,19 @@ export class CsvService {
 
     const exportData = transactions.map((transaction) => ({
       id: transaction.id,
-      amount: Number(transaction.amount),
+      amount: Number(transaction.amountYen),
       type: transaction.type,
-      description: String(transaction.description),
+      description: String(transaction.note),
       date: this.formatDate(
-        new Date(String(transaction.date)),
+        new Date(String(transaction.occurredOn)),
         String(options.dateFormat),
       ),
       category: transaction.category.name,
       categoryId: transaction.categoryId,
-      actor: transaction.actor.name,
-      actorId: String(transaction.actorId),
+      actor: transaction.payerActor.name,
+      actorId: String(transaction.payerActorId),
       tags: transaction.tags.join(';'),
-      notes: String(transaction.notes || ''),
+      notes: String(transaction.note || ''),
       shouldPay: transaction.shouldPay,
       createdAt: this.formatDate(
         transaction.createdAt,
@@ -372,11 +429,9 @@ export class CsvService {
         return prisma.income.findMany({
           where: {
             householdId: authContext.householdId,
-            deletedAt: null,
           },
           select: {
             userId: true,
-            year: true,
             month: true,
           },
         });
@@ -386,7 +441,7 @@ export class CsvService {
     const existingKeys = new Set(
       existingIncomes.map(
         (income) =>
-          `${income.userId}-${String(income.year)}-${String(income.month)}`,
+          `${income.userId}-${income.month.getFullYear()}-${income.month.getMonth() + 1}`,
       ),
     );
 
@@ -398,7 +453,7 @@ export class CsvService {
       try {
         const mappedData = this.mapRowData(row, fieldMapping);
         const validationResult = await this.validateIncomeRow(
-          mappedData,
+          mappedData as Record<string, string | number | boolean | Date | null>,
           authContext,
         );
 
@@ -428,7 +483,7 @@ export class CsvService {
           continue;
         }
 
-        validIncomes.push(mappedData as CreateIncomeDto);
+        validIncomes.push(this.convertToCreateIncomeDto(mappedData));
         processedKeys.add(incomeKey);
       } catch (error: unknown) {
         result.failed++;
@@ -479,13 +534,13 @@ export class CsvService {
       userId: income.userId,
       userName: income.user.name,
       userEmail: income.user.email,
-      grossIncomeYen: Number(income.grossIncomeYen),
-      deductionYen: Number(income.deductionYen),
+      grossIncomeYen: Number(income.grossYen),
+      deductionTaxYen: Number(income.deductionTaxYen),
+      deductionSocialYen: Number(income.deductionSocialYen),
+      deductionOtherYen: Number(income.deductionOtherYen),
       allocatableYen: Number(income.allocatableYen),
-      year: Number(income.year),
-      month: Number(income.month),
-      description: String(income.description || ''),
-      sourceDocument: String(income.sourceDocument || ''),
+      year: income.month.getFullYear(),
+      month: income.month.getMonth() + 1,
       createdAt: this.formatDate(income.createdAt, options.dateFormat),
     }));
 
@@ -514,7 +569,7 @@ export class CsvService {
       // Apply transformations
       if (systemValue && mapping.transform) {
         systemValue = this.transformValue(
-          systemValue,
+          systemValue as string | number | boolean | null,
           mapping.transform,
           mapping.enumValues,
         );
@@ -527,10 +582,60 @@ export class CsvService {
         );
       }
 
-      mappedData[mapping.systemField] = systemValue;
+      mappedData[mapping.systemField] = systemValue as
+        | string
+        | number
+        | string[]
+        | undefined;
     }
 
     return mappedData;
+  }
+
+  private convertToCreateTransactionDto(
+    mappedData: MappedRowData,
+    sourceHash: string,
+  ): CreateTransactionDto {
+    return {
+      type: mappedData.type as 'INCOME' | 'EXPENSE',
+      amount_yen: Number(
+        mappedData.amount_yen || mappedData.amountYen || mappedData.amount || 0,
+      ),
+      occurred_on:
+        mappedData.occurred_on ||
+        mappedData.occurredOn ||
+        mappedData.date ||
+        '',
+      category_id: mappedData.category_id || mappedData.categoryId || '',
+      payer_actor_id:
+        mappedData.payer_actor_id || mappedData.payerActorId || '',
+      should_pay: (mappedData.should_pay ||
+        mappedData.shouldPay ||
+        'HOUSEHOLD') as 'HOUSEHOLD' | 'USER',
+      note: mappedData.note || mappedData.description || '',
+      ...(mappedData.tags && {
+        tags: Array.isArray(mappedData.tags)
+          ? mappedData.tags
+          : [mappedData.tags],
+      }),
+      source_hash: sourceHash,
+    };
+  }
+
+  private convertToCreateIncomeDto(mappedData: MappedRowData): CreateIncomeDto {
+    return {
+      userId: mappedData.userId || '',
+      grossIncomeYen: Number(
+        mappedData.grossIncomeYen || mappedData.grossYen || 0,
+      ),
+      deductionYen: Number(
+        mappedData.deductionYen || mappedData.deductionTaxYen || 0,
+      ),
+      year: Number(mappedData.year || new Date().getFullYear()),
+      month: Number(mappedData.month || 1),
+      description: mappedData.description || '',
+      sourceDocument: mappedData.sourceDocument || '',
+    };
   }
 
   private transformValue(
@@ -540,6 +645,12 @@ export class CsvService {
   ): string | number | boolean | Date | null {
     switch (transform) {
       case 'date': {
+        if (!value) {
+          throw new BadRequestException(`Invalid date format: ${value}`);
+        }
+        if (typeof value === 'boolean') {
+          throw new BadRequestException(`Invalid date format: ${value}`);
+        }
         const date = new Date(value);
         if (isNaN(date.getTime())) {
           throw new BadRequestException(`Invalid date format: ${value}`);
@@ -556,21 +667,27 @@ export class CsvService {
       }
 
       case 'boolean':
+        if (!value) return false;
         return ['true', '1', 'yes', 'y'].includes(
           value.toString().toLowerCase(),
         );
 
-      case 'enum':
-        if (enumValues && !enumValues.includes(value)) {
+      case 'enum': {
+        if (!value) {
+          throw new BadRequestException(`Invalid enum value: ${value}`);
+        }
+        const stringValue = value.toString();
+        if (enumValues && !enumValues.includes(stringValue)) {
           throw new BadRequestException(
-            `Invalid enum value: ${value}. Must be one of: ${enumValues.join(', ')}`,
+            `Invalid enum value: ${stringValue}. Must be one of: ${enumValues.join(', ')}`,
           );
         }
-        return value;
+        return stringValue;
+      }
 
       case 'string':
       default:
-        return value.toString();
+        return value ? value.toString() : '';
     }
   }
 
@@ -584,52 +701,73 @@ export class CsvService {
     const errors: ImportError[] = [];
 
     // Validate amount
-    if (!Number.isInteger(data.amount) || data.amount === 0) {
+    const amountValue =
+      typeof data.amount === 'number'
+        ? data.amount
+        : typeof data.amount === 'string'
+          ? parseInt(data.amount)
+          : 0;
+    if (!Number.isInteger(amountValue) || amountValue === 0) {
       errors.push({
         row: 0,
         field: 'amount',
-        value: data.amount,
+        value:
+          typeof data.amount === 'object' && data.amount instanceof Date
+            ? data.amount.toString()
+            : (data.amount ?? null),
         message: 'Amount must be a non-zero integer',
       });
     }
 
     // Validate type and amount consistency
-    if (data.type === TransactionType.income && data.amount < 0) {
+    if (data.type === TransactionType.INCOME && amountValue < 0) {
       errors.push({
         row: 0,
         field: 'type',
-        value: data.type,
+        value: data.type ?? null,
         message: 'Income transactions must have positive amounts',
       });
-    } else if (data.type === TransactionType.expense && data.amount > 0) {
+    } else if (data.type === TransactionType.EXPENSE && amountValue > 0) {
       errors.push({
         row: 0,
         field: 'type',
-        value: data.type,
+        value: data.type ?? null,
         message: 'Expense transactions must have negative amounts',
       });
     }
 
     // Validate category exists
     try {
-      await this.categoriesService.findOne(data.categoryId, authContext);
+      const categoryId =
+        typeof data.categoryId === 'string'
+          ? data.categoryId
+          : String(data.categoryId);
+      await this.categoriesService.findOne(categoryId, authContext);
     } catch {
       errors.push({
         row: 0,
         field: 'categoryId',
-        value: data.categoryId,
+        value:
+          typeof data.categoryId === 'object' && data.categoryId instanceof Date
+            ? data.categoryId.toString()
+            : (data.categoryId ?? null),
         message: 'Category not found',
       });
     }
 
     // Validate actor exists
     try {
-      await this.actorsService.findOne(data.actorId, authContext);
+      const actorId =
+        typeof data.actorId === 'string' ? data.actorId : String(data.actorId);
+      await this.actorsService.findOne(actorId, authContext);
     } catch {
       errors.push({
         row: 0,
         field: 'actorId',
-        value: data.actorId,
+        value:
+          typeof data.actorId === 'object' && data.actorId instanceof Date
+            ? data.actorId.toString()
+            : (data.actorId ?? null),
         message: 'Actor not found',
       });
     }
@@ -650,57 +788,103 @@ export class CsvService {
     const errors: ImportError[] = [];
 
     // Validate amounts
-    if (!Number.isInteger(data.grossIncomeYen) || data.grossIncomeYen < 0) {
+    const grossIncomeValue =
+      typeof data.grossIncomeYen === 'number'
+        ? data.grossIncomeYen
+        : typeof data.grossIncomeYen === 'string'
+          ? parseInt(data.grossIncomeYen)
+          : 0;
+    const deductionValue =
+      typeof data.deductionYen === 'number'
+        ? data.deductionYen
+        : typeof data.deductionYen === 'string'
+          ? parseInt(data.deductionYen)
+          : 0;
+
+    if (!Number.isInteger(grossIncomeValue) || grossIncomeValue < 0) {
       errors.push({
         row: 0,
         field: 'grossIncomeYen',
-        value: data.grossIncomeYen,
+        value:
+          typeof data.grossIncomeYen === 'object' &&
+          data.grossIncomeYen instanceof Date
+            ? data.grossIncomeYen.toString()
+            : (data.grossIncomeYen ?? null),
         message: 'Gross income must be a non-negative integer',
       });
     }
 
-    if (!Number.isInteger(data.deductionYen) || data.deductionYen < 0) {
+    if (!Number.isInteger(deductionValue) || deductionValue < 0) {
       errors.push({
         row: 0,
         field: 'deductionYen',
-        value: data.deductionYen,
+        value:
+          typeof data.deductionYen === 'object' &&
+          data.deductionYen instanceof Date
+            ? data.deductionYen.toString()
+            : (data.deductionYen ?? null),
         message: 'Deduction must be a non-negative integer',
       });
     }
 
-    if (data.deductionYen > data.grossIncomeYen) {
+    if (deductionValue > grossIncomeValue) {
       errors.push({
         row: 0,
         field: 'deductionYen',
-        value: data.deductionYen,
+        value:
+          typeof data.deductionYen === 'object' &&
+          data.deductionYen instanceof Date
+            ? data.deductionYen.toString()
+            : (data.deductionYen ?? null),
         message: 'Deduction cannot exceed gross income',
       });
     }
 
     // Validate year and month
+    const yearValue =
+      typeof data.year === 'number'
+        ? data.year
+        : typeof data.year === 'string'
+          ? parseInt(data.year)
+          : 0;
+    const monthValue =
+      typeof data.month === 'number'
+        ? data.month
+        : typeof data.month === 'string'
+          ? parseInt(data.month)
+          : 0;
     const currentYear = new Date().getFullYear();
-    if (data.year < 1900 || data.year > currentYear + 5) {
+
+    if (yearValue < 1900 || yearValue > currentYear + 5) {
       errors.push({
         row: 0,
         field: 'year',
-        value: data.year,
+        value:
+          typeof data.year === 'object' && data.year instanceof Date
+            ? data.year.toString()
+            : (data.year ?? null),
         message: `Year must be between 1900 and ${currentYear + 5}`,
       });
     }
 
-    if (data.month < 1 || data.month > 12) {
+    if (monthValue < 1 || monthValue > 12) {
       errors.push({
         row: 0,
         field: 'month',
-        value: data.month,
+        value:
+          typeof data.month === 'object' && data.month instanceof Date
+            ? data.month.toString()
+            : (data.month ?? null),
         message: 'Month must be between 1 and 12',
       });
     }
 
     // Validate user exists
+    const userId =
+      typeof data.userId === 'string' ? data.userId : String(data.userId);
     const user = await this.prismaService.prisma.user.findFirst({
       where: {
-        id: data.userId,
+        ...(userId && { id: userId }),
         householdId: authContext.householdId,
         deletedAt: null,
       },
@@ -710,7 +894,10 @@ export class CsvService {
       errors.push({
         row: 0,
         field: 'userId',
-        value: data.userId,
+        value:
+          typeof data.userId === 'object' && data.userId instanceof Date
+            ? data.userId.toString()
+            : (data.userId ?? null),
         message: 'User not found or does not belong to household',
       });
     }
@@ -733,24 +920,28 @@ export class CsvService {
         select: { sourceHash: true },
       });
 
-      return new Set(transactions.map((t) => t.sourceHash).filter(Boolean));
+      return new Set(
+        transactions
+          .map((t) => t.sourceHash)
+          .filter((hash): hash is string => Boolean(hash)),
+      );
     });
   }
 
   private generateTransactionHash(data: {
-    amount: number;
-    date: Date;
-    description: string;
-    actorId: string;
+    amountYen: number;
+    occurredOn: Date;
+    note: string;
+    payerActorId: string;
     categoryId: string;
   }): string {
-    const hashInput = `${data.amount}-${data.date.toISOString()}-${data.description}-${data.actorId}-${data.categoryId}`;
+    const hashInput = `${data.amountYen}-${data.occurredOn.toISOString()}-${data.note}-${data.payerActorId}-${data.categoryId}`;
     return crypto.createHash('sha256').update(hashInput).digest('hex');
   }
 
   private formatDate(date: Date, format?: string): string {
     if (!format) {
-      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+      return date.toISOString().split('T')[0] || date.toISOString(); // YYYY-MM-DD
     }
 
     // Simple format mapping
@@ -762,7 +953,7 @@ export class CsvService {
       case 'eu':
         return date.toLocaleDateString('en-GB');
       default:
-        return date.toISOString().split('T')[0];
+        return date.toISOString().split('T')[0] || date.toISOString();
     }
   }
 }

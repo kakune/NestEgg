@@ -15,7 +15,7 @@ export class ValidationPipe extends NestValidationPipe {
         enableImplicitConversion: true,
       },
       exceptionFactory: (validationErrors: ValidationError[] = []) => {
-        const errors = this.flattenValidationErrors(validationErrors);
+        const errors = this.flattenCustomValidationErrors(validationErrors);
         return new BadRequestException({
           code: 'VALIDATION_ERROR',
           message: 'Request validation failed',
@@ -25,7 +25,7 @@ export class ValidationPipe extends NestValidationPipe {
     });
   }
 
-  private flattenValidationErrors(
+  private flattenCustomValidationErrors(
     validationErrors: ValidationError[],
     parentPath = '',
   ): Array<{ field: string; code: string; message: string }> {
@@ -49,7 +49,9 @@ export class ValidationPipe extends NestValidationPipe {
       }
 
       if (error.children && error.children.length > 0) {
-        errors.push(...this.flattenValidationErrors(error.children, fieldPath));
+        errors.push(
+          ...this.flattenCustomValidationErrors(error.children, fieldPath),
+        );
       }
     }
 

@@ -40,7 +40,7 @@ describe('PaginationDto', () => {
 
       const errors = await validate(dto);
       expect(errors).toHaveLength(1);
-      expect(errors[0].constraints?.min).toBe('limit must be at least 1');
+      expect(errors[0]?.constraints?.min).toBe('limit must be at least 1');
     });
 
     it('should reject limit above maximum', async () => {
@@ -50,7 +50,7 @@ describe('PaginationDto', () => {
 
       const errors = await validate(dto);
       expect(errors).toHaveLength(1);
-      expect(errors[0].constraints?.max).toBe('limit must not exceed 100');
+      expect(errors[0]?.constraints?.max).toBe('limit must not exceed 100');
     });
 
     it('should reject non-integer limit', async () => {
@@ -60,7 +60,7 @@ describe('PaginationDto', () => {
 
       const errors = await validate(dto);
       expect(errors).toHaveLength(1);
-      expect(errors[0].constraints?.isInt).toBe('limit must be an integer');
+      expect(errors[0]?.constraints?.isInt).toBe('limit must be an integer');
     });
 
     it('should reject non-string cursor', async () => {
@@ -70,7 +70,7 @@ describe('PaginationDto', () => {
 
       const errors = await validate(dto);
       expect(errors).toHaveLength(1);
-      expect(errors[0].constraints?.isString).toBe('cursor must be a string');
+      expect(errors[0]?.constraints?.isString).toBe('cursor must be a string');
     });
 
     it('should reject non-string sort', async () => {
@@ -80,7 +80,7 @@ describe('PaginationDto', () => {
 
       const errors = await validate(dto);
       expect(errors).toHaveLength(1);
-      expect(errors[0].constraints?.isString).toBe('sort must be a string');
+      expect(errors[0]?.constraints?.isString).toBe('sort must be a string');
     });
 
     it('should transform include_deleted string values to boolean', () => {

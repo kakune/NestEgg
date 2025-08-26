@@ -11,8 +11,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  IncomesService,
+import { IncomesService } from './incomes.service';
+import type {
   CreateIncomeDto,
   UpdateIncomeDto,
   IncomeFilters,
@@ -22,7 +22,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 import { Income } from '@prisma/client';
 
 interface IncomeQueryParams {
@@ -76,20 +76,20 @@ export class IncomesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
     const filters: IncomeFilters = {
-      userId: query.userId,
-      year: query.year ? parseInt(query.year) : undefined,
-      month: query.month ? parseInt(query.month) : undefined,
-      yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
-      yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
-      minAllocatable: query.minAllocatable
-        ? parseInt(query.minAllocatable)
-        : undefined,
-      maxAllocatable: query.maxAllocatable
-        ? parseInt(query.maxAllocatable)
-        : undefined,
-      search: query.search,
-      limit: query.limit ? parseInt(query.limit) : undefined,
-      offset: query.offset ? parseInt(query.offset) : undefined,
+      ...(query.userId && { userId: query.userId }),
+      ...(query.year && { year: parseInt(query.year) }),
+      ...(query.month && { month: parseInt(query.month) }),
+      ...(query.yearFrom && { yearFrom: parseInt(query.yearFrom) }),
+      ...(query.yearTo && { yearTo: parseInt(query.yearTo) }),
+      ...(query.minAllocatable && {
+        minAllocatable: parseInt(query.minAllocatable),
+      }),
+      ...(query.maxAllocatable && {
+        maxAllocatable: parseInt(query.maxAllocatable),
+      }),
+      ...(query.search && { search: query.search }),
+      ...(query.limit && { limit: parseInt(query.limit) }),
+      ...(query.offset && { offset: parseInt(query.offset) }),
       sortBy: query.sortBy as
         | 'year'
         | 'month'
@@ -108,9 +108,9 @@ export class IncomesController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<IncomeStatistics> {
     const filters: IncomeFilters = {
-      userId: query.userId,
-      yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
-      yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
+      ...(query.userId && { userId: query.userId }),
+      ...(query.yearFrom && { yearFrom: parseInt(query.yearFrom) }),
+      ...(query.yearTo && { yearTo: parseInt(query.yearTo) }),
     };
 
     return this.incomesService.getIncomeStatistics(filters, user);
@@ -120,15 +120,18 @@ export class IncomesController {
   async getHouseholdBreakdown(
     @Param('year') year: string,
     @Query('month') month?: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUser() user?: AuthenticatedUser,
   ): Promise<any> {
     const yearNum = parseInt(year);
     const monthNum = month ? parseInt(month) : undefined;
 
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
     return this.incomesService.getHouseholdIncomeBreakdown(
       yearNum,
-      monthNum,
       user,
+      monthNum,
     );
   }
 
@@ -140,12 +143,12 @@ export class IncomesController {
   ): Promise<IncomeWithDetails[]> {
     const filters: IncomeFilters = {
       userId,
-      year: query.year ? parseInt(query.year) : undefined,
-      month: query.month ? parseInt(query.month) : undefined,
-      yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
-      yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
-      limit: query.limit ? parseInt(query.limit) : undefined,
-      offset: query.offset ? parseInt(query.offset) : undefined,
+      ...(query.year && { year: parseInt(query.year) }),
+      ...(query.month && { month: parseInt(query.month) }),
+      ...(query.yearFrom && { yearFrom: parseInt(query.yearFrom) }),
+      ...(query.yearTo && { yearTo: parseInt(query.yearTo) }),
+      ...(query.limit && { limit: parseInt(query.limit) }),
+      ...(query.offset && { offset: parseInt(query.offset) }),
       sortBy: query.sortBy as
         | 'year'
         | 'month'
@@ -197,10 +200,10 @@ export class IncomesController {
   ): Promise<IncomeWithDetails[]> {
     const filters: IncomeFilters = {
       year: parseInt(year),
-      month: query.month ? parseInt(query.month) : undefined,
-      userId: query.userId,
-      limit: query.limit ? parseInt(query.limit) : undefined,
-      offset: query.offset ? parseInt(query.offset) : undefined,
+      ...(query.month && { month: parseInt(query.month) }),
+      ...(query.userId && { userId: query.userId }),
+      ...(query.limit && { limit: parseInt(query.limit) }),
+      ...(query.offset && { offset: parseInt(query.offset) }),
       sortBy:
         (query.sortBy as
           | 'year'
@@ -222,12 +225,12 @@ export class IncomesController {
   ): Promise<IncomeWithDetails[]> {
     const filters: IncomeFilters = {
       search: searchQuery,
-      userId: query.userId,
-      year: query.year ? parseInt(query.year) : undefined,
-      yearFrom: query.yearFrom ? parseInt(query.yearFrom) : undefined,
-      yearTo: query.yearTo ? parseInt(query.yearTo) : undefined,
+      ...(query.userId && { userId: query.userId }),
+      ...(query.year && { year: parseInt(query.year) }),
+      ...(query.yearFrom && { yearFrom: parseInt(query.yearFrom) }),
+      ...(query.yearTo && { yearTo: parseInt(query.yearTo) }),
       limit: query.limit ? parseInt(query.limit) : 50, // Default limit for search
-      offset: query.offset ? parseInt(query.offset) : undefined,
+      ...(query.offset && { offset: parseInt(query.offset) }),
       sortBy: 'year',
       sortOrder: 'desc',
     };
@@ -252,12 +255,15 @@ export class IncomesController {
   @Get('current-year')
   async findCurrentYear(
     @Query('userId') userId?: string,
-    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUser() user?: AuthenticatedUser,
   ): Promise<IncomeWithDetails[]> {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
     const currentYear = new Date().getFullYear();
     const filters: IncomeFilters = {
       year: currentYear,
-      userId,
+      ...(userId && { userId }),
       sortBy: 'month',
       sortOrder: 'asc',
     };

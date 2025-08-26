@@ -26,16 +26,24 @@ describe('JwtStrategy', () => {
   const mockSession = {
     id: 'session-1',
     userId: 'user-1',
-    revokedAt: null,
+    sessionData: JSON.stringify({
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent',
+    }),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-    lastActiveAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
   const mockPat = {
     id: 'pat-1',
     userId: 'user-1',
-    revokedAt: null,
+    name: 'Test PAT',
+    token: 'test-token',
+    abilities: ['read', 'write'],
     expiresAt: null, // No expiration
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
   beforeEach(async () => {
@@ -157,13 +165,12 @@ describe('JwtStrategy', () => {
         );
       });
 
-      it('should throw UnauthorizedException when session is revoked', async () => {
-        const revokedSession = { ...mockSession, revokedAt: new Date() };
+      it('should throw UnauthorizedException when session is null', async () => {
         (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(
           mockUser,
         );
         (mockPrismaClient.session.findUnique as jest.Mock).mockResolvedValue(
-          revokedSession,
+          null,
         );
 
         await expect(strategy.validate(accessTokenPayload)).rejects.toThrow(
@@ -212,8 +219,11 @@ describe('JwtStrategy', () => {
 
       it('should handle access token without session ID', async () => {
         const payloadWithoutSession = {
-          ...accessTokenPayload,
-          sessionId: undefined,
+          sub: accessTokenPayload.sub,
+          email: accessTokenPayload.email,
+          householdId: accessTokenPayload.householdId,
+          role: accessTokenPayload.role,
+          tokenType: accessTokenPayload.tokenType,
         };
         (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(
           mockUser,
@@ -440,7 +450,7 @@ describe('JwtStrategy', () => {
         expect(result.sessionId).toBe('session-1');
       });
 
-      it('should handle session update failures gracefully', async () => {
+      it('should handle database errors during session lookup', async () => {
         const accessPayload: JwtPayload = {
           sub: 'user-1',
           email: 'test@example.com',
@@ -453,15 +463,12 @@ describe('JwtStrategy', () => {
         (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(
           mockUser,
         );
-        (mockPrismaClient.session.findUnique as jest.Mock).mockResolvedValue(
-          mockSession,
-        );
-        (mockPrismaClient.session.update as jest.Mock).mockRejectedValue(
-          new Error('Update failed'),
+        (mockPrismaClient.session.findUnique as jest.Mock).mockRejectedValue(
+          new Error('Database connection failed'),
         );
 
         await expect(strategy.validate(accessPayload)).rejects.toThrow(
-          'Update failed',
+          'Database connection failed',
         );
       });
 

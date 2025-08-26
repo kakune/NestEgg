@@ -44,12 +44,11 @@ describe('ActorsService', () => {
     id: 'actor-1',
     name: 'Test Actor',
     kind: ActorKind.USER,
-    description: 'Test Description',
     householdId: 'household-1',
     userId: 'user-1',
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     user: mockUser,
   };
 
@@ -57,12 +56,11 @@ describe('ActorsService', () => {
     id: 'actor-2',
     name: 'Credit Card',
     kind: ActorKind.INSTRUMENT,
-    description: 'Main credit card',
     householdId: 'household-1',
-    userId: 'user-1',
+    userId: null,
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
-    deletedAt: null,
     user: null,
   };
 
@@ -97,9 +95,9 @@ describe('ActorsService', () => {
       const mockActors = [mockActor, mockInstrumentActor];
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser[]>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findMany as jest.Mock).mockResolvedValue(
@@ -113,9 +111,9 @@ describe('ActorsService', () => {
 
     it('should filter actors by household', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser[]>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findMany as jest.Mock).mockImplementation(
@@ -134,9 +132,9 @@ describe('ActorsService', () => {
       const orderedActors = [mockActor, mockInstrumentActor];
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser[]>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findMany as jest.Mock).mockResolvedValue(
@@ -145,8 +143,10 @@ describe('ActorsService', () => {
 
       const result = await service.findAll(mockAuthContext);
 
-      expect(result[0].kind).toBe(ActorKind.USER);
-      expect(result[1].kind).toBe(ActorKind.INSTRUMENT);
+      expect(result).toBeDefined();
+      expect(result.length).toBe(2);
+      expect(result[0]?.kind).toBe(ActorKind.USER);
+      expect(result[1]?.kind).toBe(ActorKind.INSTRUMENT);
     });
   });
 
@@ -165,11 +165,9 @@ describe('ActorsService', () => {
       };
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (
-            prisma: PrismaClient,
-          ) => Promise<ActorWithUser & { transactions: any[] }>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(
@@ -183,9 +181,9 @@ describe('ActorsService', () => {
 
     it('should throw NotFoundException when actor not found', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(null);
@@ -197,9 +195,9 @@ describe('ActorsService', () => {
 
     it('should enforce household isolation', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockImplementation(
@@ -221,9 +219,9 @@ describe('ActorsService', () => {
       const userActors = [mockActor];
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser[]>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findMany as jest.Mock).mockResolvedValue(
@@ -237,9 +235,9 @@ describe('ActorsService', () => {
 
     it('should filter by userId and householdId', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser[]>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findMany as jest.Mock).mockImplementation(
@@ -258,7 +256,6 @@ describe('ActorsService', () => {
     const createActorDto: CreateActorDto = {
       name: 'New Actor',
       kind: ActorKind.INSTRUMENT,
-      description: 'New Description',
     };
 
     it('should create actor successfully', async () => {
@@ -270,9 +267,9 @@ describe('ActorsService', () => {
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(null);
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.create as jest.Mock).mockResolvedValue(mockActor);
@@ -296,9 +293,9 @@ describe('ActorsService', () => {
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(null);
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.create as jest.Mock).mockResolvedValue(mockActor);
@@ -346,7 +343,6 @@ describe('ActorsService', () => {
   describe('update', () => {
     const updateActorDto: UpdateActorDto = {
       name: 'Updated Actor',
-      description: 'Updated Description',
     };
 
     it('should update actor successfully', async () => {
@@ -354,9 +350,9 @@ describe('ActorsService', () => {
 
       mockPrismaService.withContext
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
             (
               mockPrismaClient.actor.findFirst as jest.Mock
@@ -365,9 +361,9 @@ describe('ActorsService', () => {
           },
         )
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorWithUser>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
             (mockPrismaClient.actor.update as jest.Mock).mockResolvedValueOnce(
               updatedActor,
@@ -391,9 +387,9 @@ describe('ActorsService', () => {
       const otherUserActor = { ...mockActor, userId: 'user-3' };
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(
@@ -407,9 +403,9 @@ describe('ActorsService', () => {
 
     it('should throw BadRequestException when new name already exists', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock)
@@ -429,9 +425,9 @@ describe('ActorsService', () => {
     it('should remove actor successfully', async () => {
       mockPrismaService.withContext
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
             (
               mockPrismaClient.actor.findFirst as jest.Mock
@@ -440,9 +436,9 @@ describe('ActorsService', () => {
           },
         )
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<void>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
             (mockPrismaClient.actor.update as jest.Mock).mockResolvedValueOnce(
               undefined,
@@ -462,9 +458,9 @@ describe('ActorsService', () => {
       const otherUserActor = { ...mockActor, userId: 'user-3' };
 
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(
@@ -478,9 +474,9 @@ describe('ActorsService', () => {
 
     it('should throw BadRequestException when actor has transactions', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(
@@ -515,33 +511,57 @@ describe('ActorsService', () => {
 
       mockPrismaService.withContext
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
-            (
-              mockPrismaClient.actor.findFirst as jest.Mock
-            ).mockResolvedValueOnce(mockActor);
+            (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(
+              mockActor,
+            );
             return fn(mockPrismaClient);
           },
         )
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorStatistics>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
-            (mockPrismaClient.transaction.count as jest.Mock)
-              .mockResolvedValueOnce(10) // total count
-              .mockResolvedValueOnce(3); // recent count
-            (mockPrismaClient.transaction.aggregate as jest.Mock)
-              .mockResolvedValueOnce({
-                _sum: { amount: 5000 },
-                _count: 5,
-              }) // income
-              .mockResolvedValueOnce({
-                _sum: { amount: -3000 },
-                _count: 5,
-              }); // expenses
+            // Mock the count calls
+            (
+              mockPrismaClient.transaction.count as jest.Mock
+            ).mockImplementation(
+              (args: { where: { occurredOn?: unknown } }) => {
+                if (args.where.occurredOn) {
+                  return Promise.resolve(3); // recent transactions
+                }
+                return Promise.resolve(10); // total count
+              },
+            );
+
+            // Mock the aggregate calls
+            (
+              mockPrismaClient.transaction.aggregate as jest.Mock
+            ).mockImplementation(
+              (args: {
+                where: { amountYen?: { gt?: number; lt?: number } };
+              }) => {
+                if (args.where.amountYen?.gt === 0) {
+                  return Promise.resolve({
+                    _sum: { amountYen: BigInt(5000) },
+                    _count: 5,
+                  }); // income
+                } else if (args.where.amountYen?.lt === 0) {
+                  return Promise.resolve({
+                    _sum: { amountYen: BigInt(-3000) },
+                    _count: 5,
+                  }); // expenses
+                }
+                return Promise.resolve({
+                  _sum: { amountYen: BigInt(0) },
+                  _count: 0,
+                });
+              },
+            );
             return fn(mockPrismaClient);
           },
         );
@@ -554,9 +574,9 @@ describe('ActorsService', () => {
     it('should handle null aggregation results', async () => {
       mockPrismaService.withContext
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
             (
               mockPrismaClient.actor.findFirst as jest.Mock
@@ -565,22 +585,19 @@ describe('ActorsService', () => {
           },
         )
         .mockImplementationOnce(
-          (
-            context: AuthContext,
-            fn: (prisma: PrismaClient) => Promise<ActorStatistics>,
+          <T>(
+            context: AuthContext & { showDeleted?: boolean },
+            fn: (prisma: PrismaClient) => Promise<T>,
           ) => {
-            (mockPrismaClient.transaction.count as jest.Mock)
-              .mockResolvedValueOnce(0)
-              .mockResolvedValueOnce(0);
-            (mockPrismaClient.transaction.aggregate as jest.Mock)
-              .mockResolvedValueOnce({
-                _sum: { amount: null },
-                _count: 0,
-              })
-              .mockResolvedValueOnce({
-                _sum: { amount: null },
-                _count: 0,
-              });
+            (mockPrismaClient.transaction.count as jest.Mock).mockResolvedValue(
+              0,
+            );
+            (
+              mockPrismaClient.transaction.aggregate as jest.Mock
+            ).mockResolvedValue({
+              _sum: { amountYen: null },
+              _count: 0,
+            });
             return fn(mockPrismaClient);
           },
         );
@@ -606,9 +623,9 @@ describe('ActorsService', () => {
 
     it('should handle actor not found in update', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(null);
@@ -620,9 +637,9 @@ describe('ActorsService', () => {
 
     it('should handle actor not found in remove', async () => {
       mockPrismaService.withContext.mockImplementation(
-        (
-          context: AuthContext,
-          fn: (prisma: PrismaClient) => Promise<ActorWithUser | null>,
+        <T>(
+          context: AuthContext & { showDeleted?: boolean },
+          fn: (prisma: PrismaClient) => Promise<T>,
         ) => fn(mockPrismaClient),
       );
       (mockPrismaClient.actor.findFirst as jest.Mock).mockResolvedValue(null);

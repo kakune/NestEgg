@@ -5,9 +5,13 @@ import { of } from 'rxjs';
 
 import { ResponseInterceptor, ApiResponse } from './response.interceptor';
 
+interface MockRequest extends Partial<Request> {
+  path: string;
+}
+
 describe('ResponseInterceptor', () => {
   let interceptor: ResponseInterceptor<any>;
-  let mockRequest: Partial<Request>;
+  let mockRequest: MockRequest;
   let mockResponse: Partial<Response>;
   let mockExecutionContext: Partial<ExecutionContext>;
   let mockCallHandler: Partial<CallHandler>;

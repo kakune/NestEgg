@@ -24,9 +24,7 @@ type UserWhereInput = Prisma.UserWhereInput;
 type UserCreateInput = Prisma.UserCreateInput;
 type UserUpdateInput = Prisma.UserUpdateInput;
 type SessionWhereInput = Prisma.SessionWhereInput;
-type SessionUpdateInput = Prisma.SessionUpdateInput;
 type TokenWhereInput = Prisma.PersonalAccessTokenWhereInput;
-type TokenUpdateInput = Prisma.PersonalAccessTokenUpdateInput;
 
 // Mock bcrypt
 jest.mock('bcrypt');
@@ -256,11 +254,9 @@ describe('UsersService', () => {
 
   describe('findByEmail', () => {
     it('should find user by email', async () => {
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(mockUser);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        mockUser,
+      );
 
       const result = await service.findByEmail('test@example.com');
 
@@ -269,11 +265,9 @@ describe('UsersService', () => {
     });
 
     it('should normalize email to lowercase', async () => {
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(mockUser);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        mockUser,
+      );
 
       await service.findByEmail('TEST@EXAMPLE.COM');
 
@@ -281,11 +275,9 @@ describe('UsersService', () => {
     });
 
     it('should return null when user not found', async () => {
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.findByEmail('nonexistent@example.com');
 
@@ -321,14 +313,12 @@ describe('UsersService', () => {
         role: UserRole.member,
       };
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null); // No existing user
-      (
-        mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
-      ).mockResolvedValue('hashed-temp-password');
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      ); // No existing user
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue(
+        'hashed-temp-password',
+      );
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
         (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
@@ -372,9 +362,7 @@ describe('UsersService', () => {
       (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
         deletedUser,
       );
-      (
-        mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
-      ).mockResolvedValue('hashed-password');
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
         (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
@@ -397,14 +385,10 @@ describe('UsersService', () => {
         householdId: 'household-1',
       };
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
-      (
-        mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
-      ).mockResolvedValue('hashed-password');
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
         (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
@@ -429,14 +413,10 @@ describe('UsersService', () => {
         email: 'NEWUSER@EXAMPLE.COM',
       };
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
-      (
-        mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
-      ).mockResolvedValue('hashed-password');
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
         (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
@@ -461,14 +441,10 @@ describe('UsersService', () => {
       mockMath.random = jest.fn(() => 0.5);
       global.Math = mockMath;
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
-      (
-        mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
-      ).mockResolvedValue('hashed-password');
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
         (context: AuthContext, callback: (client: PrismaClient) => unknown) =>
@@ -515,11 +491,9 @@ describe('UsersService', () => {
             } as unknown as PrismaClient),
         );
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null); // No email conflict
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      ); // No email conflict
 
       const result = await service.update(
         'user-1',
@@ -551,11 +525,9 @@ describe('UsersService', () => {
             } as unknown as PrismaClient),
         );
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.update(
         'user-2',
@@ -604,11 +576,9 @@ describe('UsersService', () => {
             } as unknown as PrismaClient),
         );
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await service.update(
         'user-2',
@@ -735,11 +705,9 @@ describe('UsersService', () => {
             } as unknown as PrismaClient),
         );
 
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       await service.update('user-1', updateWithUpperEmail, mockAuthContext);
     });
@@ -768,6 +736,7 @@ describe('UsersService', () => {
             },
             session: {
               updateMany: jest.fn().mockResolvedValue({ count: 3 }),
+              deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
             },
           } as unknown as PrismaClient),
       );
@@ -789,15 +758,11 @@ describe('UsersService', () => {
       // Clear previous bcrypt mock calls
       (mockedBcrypt.compare as jest.Mock).mockClear();
 
-      (
-        mockPrismaService.prisma.user.findUnique as jest.MockedFunction<
-          (args: {
-            where: { id?: string; email?: string };
-          }) => Promise<User | null>
-        >
-      ).mockResolvedValue({
-        passwordHash: 'hashed-password',
-      } as User);
+      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+        {
+          passwordHash: 'hashed-password',
+        } as User,
+      );
       (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-new-password');
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
@@ -808,6 +773,7 @@ describe('UsersService', () => {
             },
             session: {
               updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+              deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
             },
           } as unknown as PrismaClient),
       );
@@ -846,15 +812,11 @@ describe('UsersService', () => {
     });
 
     it('should throw BadRequestException when current password is incorrect', async () => {
-      (
-        mockPrismaService.prisma.user.findUnique as jest.MockedFunction<
-          (args: {
-            where: { id?: string; email?: string };
-          }) => Promise<User | null>
-        >
-      ).mockResolvedValue({
-        passwordHash: 'hashed-password',
-      } as User);
+      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+        {
+          passwordHash: 'hashed-password',
+        } as User,
+      );
       (mockedBcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(
@@ -863,15 +825,11 @@ describe('UsersService', () => {
     });
 
     it('should revoke all user sessions after password change', async () => {
-      (
-        mockPrismaService.prisma.user.findUnique as jest.MockedFunction<
-          (args: {
-            where: { id?: string; email?: string };
-          }) => Promise<User | null>
-        >
-      ).mockResolvedValue({
-        passwordHash: 'hashed-password',
-      } as User);
+      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+        {
+          passwordHash: 'hashed-password',
+        } as User,
+      );
       (mockedBcrypt.compare as jest.Mock).mockResolvedValue(true);
       (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-new-password');
 
@@ -882,18 +840,11 @@ describe('UsersService', () => {
               update: jest.fn().mockResolvedValue(undefined),
             },
             session: {
-              updateMany: jest
+              deleteMany: jest
                 .fn()
                 .mockImplementation(
-                  ({
-                    where,
-                    data,
-                  }: {
-                    where: SessionWhereInput;
-                    data: SessionUpdateInput;
-                  }) => {
+                  ({ where }: { where: SessionWhereInput }) => {
                     expect(where?.userId).toBe('user-1');
-                    expect(data?.revokedAt).toBeInstanceOf(Date);
                     return Promise.resolve({ count: 2 });
                   },
                 ),
@@ -930,9 +881,11 @@ describe('UsersService', () => {
               },
               session: {
                 updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
               },
               personalAccessToken: {
                 updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+                deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
               },
             } as unknown as PrismaClient),
         );
@@ -983,9 +936,11 @@ describe('UsersService', () => {
               },
               session: {
                 updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+                deleteMany: jest.fn().mockResolvedValue({ count: 2 }),
               },
               personalAccessToken: {
                 updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+                deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
               },
             } as unknown as PrismaClient),
         );
@@ -1028,35 +983,21 @@ describe('UsersService', () => {
                   ),
               },
               session: {
-                updateMany: jest
+                deleteMany: jest
                   .fn()
                   .mockImplementation(
-                    ({
-                      where,
-                      data,
-                    }: {
-                      where: SessionWhereInput;
-                      data: SessionUpdateInput;
-                    }) => {
+                    ({ where }: { where: SessionWhereInput }) => {
                       expect(where?.userId).toBe('user-2');
-                      expect(data?.revokedAt).toBeInstanceOf(Date);
                       return Promise.resolve({ count: 1 });
                     },
                   ),
               },
               personalAccessToken: {
-                updateMany: jest
+                deleteMany: jest
                   .fn()
                   .mockImplementation(
-                    ({
-                      where,
-                      data,
-                    }: {
-                      where: TokenWhereInput;
-                      data: TokenUpdateInput;
-                    }) => {
+                    ({ where }: { where: TokenWhereInput }) => {
                       expect(where?.userId).toBe('user-2');
-                      expect(data?.revokedAt).toBeInstanceOf(Date);
                       return Promise.resolve({ count: 1 });
                     },
                   ),
@@ -1080,15 +1021,11 @@ describe('UsersService', () => {
     });
 
     it('should handle bcrypt errors during password operations', async () => {
-      (
-        mockPrismaService.prisma.user.findUnique as jest.MockedFunction<
-          (args: {
-            where: { id?: string; email?: string };
-          }) => Promise<User | null>
-        >
-      ).mockResolvedValue({
-        passwordHash: 'hashed-password',
-      } as User);
+      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+        {
+          passwordHash: 'hashed-password',
+        } as User,
+      );
       (mockedBcrypt.compare as jest.Mock).mockRejectedValue(
         new Error('Bcrypt error'),
       );
@@ -1104,22 +1041,16 @@ describe('UsersService', () => {
     });
 
     it('should handle configuration errors for bcrypt rounds', async () => {
-      (
-        mockConfigService.get as jest.MockedFunction<
-          (key: string, defaultValue?: unknown) => unknown
-        >
-      ).mockImplementation((key: string, defaultValue?: unknown) => {
-        if (key === 'BCRYPT_ROUNDS') return defaultValue; // Use default value when config is undefined
-        return defaultValue || 12; // Return default for other keys
-      });
-      (
-        mockPrismaService.prisma.user.findFirst as jest.MockedFunction<
-          (args?: { where?: UserWhereInput }) => Promise<User | null>
-        >
-      ).mockResolvedValue(null);
-      (
-        mockedBcrypt.hash as jest.MockedFunction<typeof bcrypt.hash>
-      ).mockResolvedValue('hashed-password');
+      (mockConfigService.get as jest.Mock).mockImplementation(
+        (key: string, defaultValue?: unknown) => {
+          if (key === 'BCRYPT_ROUNDS') return defaultValue; // Use default value when config is undefined
+          return defaultValue || 12; // Return default for other keys
+        },
+      );
+      (mockPrismaService.prisma.user.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (mockedBcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
 
       (mockPrismaService.withContext as jest.Mock).mockImplementation(
         (context: AuthContext, callback: (client: PrismaClient) => unknown) =>

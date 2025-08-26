@@ -18,7 +18,10 @@ import { RegisterDto } from './dto/register.dto';
 import { CreatePersonalAccessTokenDto } from './dto/create-personal-access-token.dto';
 
 // Mock bcrypt
-jest.mock('bcrypt');
+jest.mock('bcrypt', () => ({
+  compare: jest.fn(),
+  hash: jest.fn(),
+}));
 const mockedBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 
 describe('AuthService', () => {
@@ -29,6 +32,23 @@ describe('AuthService', () => {
   let mockUsersService: MockProxy<UsersService>;
   let mockConfigService: MockProxy<ConfigService>;
 
+  // Helpers to avoid unbound method warnings
+  const expectUserFindFirstCalled = (args: any) => {
+    const calls = (mockPrismaClient.user.findFirst as jest.Mock).mock.calls;
+    expect(calls).toContainEqual([args]);
+  };
+
+  const expectSessionDeleteCalled = (args: any) => {
+    const calls = (mockPrismaClient.session.delete as jest.Mock).mock.calls;
+    expect(calls).toContainEqual([args]);
+  };
+
+  const expectPATDeleteCalled = (args: any) => {
+    const calls = (mockPrismaClient.personalAccessToken.delete as jest.Mock)
+      .mock.calls;
+    expect(calls).toContainEqual([args]);
+  };
+
   const mockUser = {
     id: 'user-1',
     email: 'test@example.com',
@@ -36,6 +56,8 @@ describe('AuthService', () => {
     role: UserRole.admin,
     householdId: 'household-1',
     passwordHash: 'hashed-password',
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
     deletedAt: null,
   };
 
@@ -48,14 +70,25 @@ describe('AuthService', () => {
     deletedAt: null,
   };
 
+  const mockSafeUserWithTimestamps = {
+    id: 'user-1',
+    email: 'test@example.com',
+    name: 'Test User',
+    role: UserRole.admin,
+    householdId: 'household-1',
+    deletedAt: null,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-01T00:00:00Z'),
+  };
+
   const mockSession = {
     id: 'session-1',
     userId: 'user-1',
-    ipAddress: '127.0.0.1',
-    userAgent: 'test-agent',
+    sessionData: JSON.stringify({
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-agent',
+    }),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    revokedAt: null,
-    lastActiveAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -116,31 +149,48 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should validate user with correct credentials', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockResolvedValue(true);
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(true);
 
       const result = await service.validateUser('test@example.com', 'password');
 
-      expect(result).toEqual(mockSafeUser);
+      expect(result).toEqual(mockSafeUserWithTimestamps);
     });
 
     it('should normalize email to lowercase', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockResolvedValue(true);
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(true);
 
       await service.validateUser('TEST@EXAMPLE.COM', 'password');
 
-      // Successfully validating with normalized email confirms email normalization
+      expectUserFindFirstCalled({
+        where: { email: 'test@example.com' },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          householdId: true,
+          passwordHash: true,
+          deletedAt: true,
+        },
+      });
     });
 
     it('should throw UnauthorizedException when user not found', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.validateUser('nonexistent@example.com', 'password'),
@@ -149,7 +199,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException when user is deleted', async () => {
       const deletedUser = { ...mockUser, deletedAt: new Date() };
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         deletedUser,
       );
 
@@ -159,10 +209,14 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when password is invalid', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockResolvedValue(false);
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(false);
 
       await expect(
         service.validateUser('test@example.com', 'wrongpassword'),
@@ -179,11 +233,15 @@ describe('AuthService', () => {
     };
 
     it('should login user successfully', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockResolvedValue(true);
-      (mockPrismaService.prisma.session.create as jest.Mock).mockResolvedValue(
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(true);
+      (mockPrismaClient.session.create as jest.Mock).mockResolvedValue(
         mockSession,
       );
       mockJwtService.sign.mockReturnValue('jwt-token');
@@ -206,11 +264,15 @@ describe('AuthService', () => {
     });
 
     it('should handle different JWT expiration formats', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockResolvedValue(true);
-      (mockPrismaService.prisma.session.create as jest.Mock).mockResolvedValue(
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(true);
+      (mockPrismaClient.session.create as jest.Mock).mockResolvedValue(
         mockSession,
       );
       mockJwtService.sign.mockReturnValue('jwt-token');
@@ -235,9 +297,7 @@ describe('AuthService', () => {
     });
 
     it('should propagate validation errors', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
 
       await expect(service.login(loginDto)).rejects.toThrow(
         UnauthorizedException,
@@ -268,20 +328,20 @@ describe('AuthService', () => {
         name: "New User's Household",
       };
 
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
-        null,
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrismaClient.household.create as jest.Mock).mockResolvedValue(
+        household,
       );
-      (
-        mockPrismaService.prisma.household.create as jest.Mock
-      ).mockResolvedValue(household);
-      (mockPrismaService.prisma.user.create as jest.Mock).mockResolvedValue(
-        newUser,
-      );
-      (mockPrismaService.prisma.session.create as jest.Mock).mockResolvedValue({
+      (mockPrismaClient.user.create as jest.Mock).mockResolvedValue(newUser);
+      (mockPrismaClient.session.create as jest.Mock).mockResolvedValue({
         ...mockSession,
         id: 'session-2',
       });
-      mockedBcrypt.hash.mockResolvedValue('hashed-new-password');
+      (
+        mockedBcrypt.hash as unknown as jest.MockedFunction<
+          () => Promise<string>
+        >
+      ).mockResolvedValue('hashed-new-password');
       mockJwtService.sign.mockReturnValue('new-jwt-token');
 
       const result = await service.register(registerDto);
@@ -309,16 +369,16 @@ describe('AuthService', () => {
         role: UserRole.member,
       };
 
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
-      (mockPrismaService.prisma.user.create as jest.Mock).mockResolvedValue(
-        newUser,
-      );
-      (mockPrismaService.prisma.session.create as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrismaClient.user.create as jest.Mock).mockResolvedValue(newUser);
+      (mockPrismaClient.session.create as jest.Mock).mockResolvedValue(
         mockSession,
       );
-      mockedBcrypt.hash.mockResolvedValue('hashed-password');
+      (
+        mockedBcrypt.hash as unknown as jest.MockedFunction<
+          () => Promise<string>
+        >
+      ).mockResolvedValue('hashed-password');
       mockJwtService.sign.mockReturnValue('jwt-token');
 
       const result = await service.register(registerWithHouseholdDto);
@@ -328,7 +388,7 @@ describe('AuthService', () => {
     });
 
     it('should throw ConflictException when user already exists', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
 
@@ -343,22 +403,22 @@ describe('AuthService', () => {
         email: 'NEWUSER@EXAMPLE.COM',
       };
 
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
-      (
-        mockPrismaService.prisma.household.create as jest.Mock
-      ).mockResolvedValue({
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrismaClient.household.create as jest.Mock).mockResolvedValue({
         id: 'household-1',
         name: 'Test',
       });
-      (mockPrismaService.prisma.user.create as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.create as jest.Mock).mockResolvedValue(
         mockSafeUser,
       );
-      (mockPrismaService.prisma.session.create as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.session.create as jest.Mock).mockResolvedValue(
         mockSession,
       );
-      mockedBcrypt.hash.mockResolvedValue('hashed-password');
+      (
+        mockedBcrypt.hash as unknown as jest.MockedFunction<
+          () => Promise<string>
+        >
+      ).mockResolvedValue('hashed-password');
       mockJwtService.sign.mockReturnValue('jwt-token');
 
       await service.register(upperCaseEmailDto);
@@ -369,17 +429,20 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('should logout user by revoking session', async () => {
-      (mockPrismaService.prisma.session.update as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.session.delete as jest.Mock).mockResolvedValue(
         mockSession,
       );
 
       await service.logout('session-1');
 
+      expectSessionDeleteCalled({
+        where: { id: 'session-1' },
+      });
       // Session successfully revoked
     });
 
     it('should handle database errors during logout', async () => {
-      (mockPrismaService.prisma.session.update as jest.Mock).mockRejectedValue(
+      (mockPrismaClient.session.delete as jest.Mock).mockRejectedValue(
         new Error('Database error'),
       );
 
@@ -405,11 +468,11 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       };
 
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(
         mockUser,
       );
       (
-        mockPrismaService.prisma.personalAccessToken.create as jest.Mock
+        mockPrismaClient.personalAccessToken.create as jest.Mock
       ).mockResolvedValue(mockPat);
       mockJwtService.sign.mockReturnValue('pat-token');
 
@@ -427,9 +490,9 @@ describe('AuthService', () => {
     });
 
     it('should create token without expiration', async () => {
-      const createPatDtoNoExpiry = {
-        ...createPatDto,
-        expiresInDays: undefined,
+      const createPatDtoNoExpiry: CreatePersonalAccessTokenDto = {
+        name: createPatDto.name,
+        ...(createPatDto.scopes && { scopes: createPatDto.scopes }),
       };
       const mockPat = {
         id: 'pat-1',
@@ -439,11 +502,11 @@ describe('AuthService', () => {
         expiresAt: null,
       };
 
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(
         mockUser,
       );
       (
-        mockPrismaService.prisma.personalAccessToken.create as jest.Mock
+        mockPrismaClient.personalAccessToken.create as jest.Mock
       ).mockResolvedValue(mockPat);
       mockJwtService.sign.mockReturnValue('pat-token');
 
@@ -453,13 +516,18 @@ describe('AuthService', () => {
     });
 
     it('should use default scopes when none provided', async () => {
-      const createPatDtoNoScopes = { ...createPatDto, scopes: undefined };
+      const createPatDtoNoScopes: CreatePersonalAccessTokenDto = {
+        name: createPatDto.name,
+        ...(createPatDto.expiresInDays && {
+          expiresInDays: createPatDto.expiresInDays,
+        }),
+      };
 
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(
         mockUser,
       );
       (
-        mockPrismaService.prisma.personalAccessToken.create as jest.Mock
+        mockPrismaClient.personalAccessToken.create as jest.Mock
       ).mockResolvedValue({
         id: 'pat-1',
         name: 'Test Token',
@@ -475,9 +543,7 @@ describe('AuthService', () => {
     });
 
     it('should throw BadRequestException when user not found', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
-        null,
-      );
+      (mockPrismaClient.user.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.createPersonalAccessToken('nonexistent-user', createPatDto),
@@ -488,17 +554,20 @@ describe('AuthService', () => {
   describe('revokePersonalAccessToken', () => {
     it('should revoke personal access token', async () => {
       (
-        mockPrismaService.prisma.personalAccessToken.update as jest.Mock
-      ).mockResolvedValue({});
+        mockPrismaClient.personalAccessToken.delete as jest.Mock
+      ).mockResolvedValue({} as any);
 
       await service.revokePersonalAccessToken('user-1', 'pat-1');
 
+      expectPATDeleteCalled({
+        where: { id: 'pat-1' },
+      });
       // Personal access token successfully revoked
     });
 
     it('should handle database errors during revocation', async () => {
       (
-        mockPrismaService.prisma.personalAccessToken.update as jest.Mock
+        mockPrismaClient.personalAccessToken.delete as jest.Mock
       ).mockRejectedValue(new Error('Token not found'));
 
       await expect(
@@ -515,10 +584,7 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 60000), // 1 minute in future
       };
 
-      (
-        mockPrismaService.prisma.session.findUnique as jest.Mock
-      ).mockResolvedValue(activeSession);
-      (mockPrismaService.prisma.session.update as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.session.findUnique as jest.Mock).mockResolvedValue(
         activeSession,
       );
 
@@ -529,9 +595,9 @@ describe('AuthService', () => {
     });
 
     it('should reject non-existent session', async () => {
-      (
-        mockPrismaService.prisma.session.findUnique as jest.Mock
-      ).mockResolvedValue(null);
+      (mockPrismaClient.session.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       const result = await service.validateSession('nonexistent-session');
 
@@ -539,31 +605,15 @@ describe('AuthService', () => {
       // Session not updated for non-existent session
     });
 
-    it('should reject revoked session', async () => {
-      const revokedSession = {
-        ...mockSession,
-        revokedAt: new Date(),
-      };
-
-      (
-        mockPrismaService.prisma.session.findUnique as jest.Mock
-      ).mockResolvedValue(revokedSession);
-
-      const result = await service.validateSession('session-1');
-
-      expect(result).toBe(false);
-    });
-
     it('should reject expired session', async () => {
       const expiredSession = {
         ...mockSession,
-        revokedAt: null,
         expiresAt: new Date(Date.now() - 60000), // 1 minute in past
       };
 
-      (
-        mockPrismaService.prisma.session.findUnique as jest.Mock
-      ).mockResolvedValue(expiredSession);
+      (mockPrismaClient.session.findUnique as jest.Mock).mockResolvedValue(
+        expiredSession,
+      );
 
       const result = await service.validateSession('session-1');
 
@@ -574,7 +624,11 @@ describe('AuthService', () => {
   describe('hashPassword', () => {
     it('should hash password with correct rounds', async () => {
       mockConfigService.get.mockReturnValue(10);
-      mockedBcrypt.hash.mockResolvedValue('hashed-password');
+      (
+        mockedBcrypt.hash as unknown as jest.MockedFunction<
+          () => Promise<string>
+        >
+      ).mockResolvedValue('hashed-password');
 
       const result = await service.hashPassword('plaintext-password');
 
@@ -589,7 +643,11 @@ describe('AuthService', () => {
           return defaultValue || 12; // Return the default value when config is not available
         },
       );
-      mockedBcrypt.hash.mockResolvedValue('hashed-password');
+      (
+        mockedBcrypt.hash as unknown as jest.MockedFunction<
+          () => Promise<string>
+        >
+      ).mockResolvedValue('hashed-password');
 
       await service.hashPassword('plaintext-password');
 
@@ -599,7 +657,11 @@ describe('AuthService', () => {
 
   describe('comparePasswords', () => {
     it('should compare passwords correctly', async () => {
-      mockedBcrypt.compare.mockResolvedValue(true);
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(true);
 
       const result = await service.comparePasswords('plaintext', 'hashed');
 
@@ -608,7 +670,11 @@ describe('AuthService', () => {
     });
 
     it('should return false for incorrect passwords', async () => {
-      mockedBcrypt.compare.mockResolvedValue(false);
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(false);
 
       const result = await service.comparePasswords('wrong-password', 'hashed');
 
@@ -618,7 +684,7 @@ describe('AuthService', () => {
 
   describe('edge cases and error handling', () => {
     it('should handle database connection errors', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockRejectedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockRejectedValue(
         new Error('Database connection failed'),
       );
 
@@ -628,10 +694,14 @@ describe('AuthService', () => {
     });
 
     it('should handle bcrypt errors', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockRejectedValue(new Error('Bcrypt error'));
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockRejectedValue(new Error('Bcrypt error'));
 
       await expect(
         service.validateUser('test@example.com', 'password'),
@@ -639,11 +709,15 @@ describe('AuthService', () => {
     });
 
     it('should handle JWT errors', async () => {
-      (mockPrismaService.prisma.user.findUnique as jest.Mock).mockResolvedValue(
+      (mockPrismaClient.user.findFirst as jest.Mock).mockResolvedValue(
         mockUser,
       );
-      mockedBcrypt.compare.mockResolvedValue(true);
-      (mockPrismaService.prisma.session.create as jest.Mock).mockResolvedValue(
+      (
+        mockedBcrypt.compare as unknown as jest.MockedFunction<
+          () => Promise<boolean>
+        >
+      ).mockResolvedValue(true);
+      (mockPrismaClient.session.create as jest.Mock).mockResolvedValue(
         mockSession,
       );
       mockJwtService.sign.mockImplementation(() => {

@@ -10,16 +10,13 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ActorsService,
-  CreateActorDto,
-  UpdateActorDto,
-} from './actors.service';
+import { ActorsService } from './actors.service';
+import type { CreateActorDto, UpdateActorDto } from './actors.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
-import { Actor } from '@prisma/client';
-import { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
+import type { Actor } from '@prisma/client';
+import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
 
 @Controller('actors')
 @UseGuards(JwtAuthGuard, RolesGuard)
