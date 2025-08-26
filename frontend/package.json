@@ -9,9 +9,9 @@
         "start": "next start",
         "lint": "npm run type-check && eslint \"./src/**/*.{ts,tsx}\" --fix",
         "type-check": "tsc --noEmit",
-        "test": "npm run type-check && jest --passWithNoTests",
-        "test:watch": "jest --watch --passWithNoTests",
-        "test:coverage": "jest --coverage --passWithNoTests",
+        "test": "npm run type-check && jest",
+        "test:watch": "jest --watch",
+        "test:cov": "jest --coverage",
         "test:e2e": "playwright test",
         "test:e2e:ui": "playwright test --ui"
     },
@@ -69,6 +69,7 @@
         "postcss": "^8.5.1",
         "tailwindcss": "^3.4.0",
         "typescript": "~5.8.3",
-        "typescript-eslint": "^8.39.1"
+        "typescript-eslint": "^8.39.1",
+        "whatwg-fetch": "^3.6.20"
     }
 }

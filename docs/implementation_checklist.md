@@ -586,8 +586,8 @@
 - [ ] **User interaction tests**
   - [ ] Test drag-and-drop functionality
   - [ ] Test confirmation dialogs
-  - [x] Test form error handling
-  - [x] Test responsive behavior
+  - [ ] Test form error handling
+  - [ ] Test responsive behavior
 
 #### Acceptance Criteria
 - [x] Transaction CRUD operations work correctly ✅
