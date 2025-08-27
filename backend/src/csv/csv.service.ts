@@ -701,20 +701,21 @@ export class CsvService {
     const errors: ImportError[] = [];
 
     // Validate amount
+    const amountField = data.amount_yen || data.amountYen || data.amount;
     const amountValue =
-      typeof data.amount === 'number'
-        ? data.amount
-        : typeof data.amount === 'string'
-          ? parseInt(data.amount)
+      typeof amountField === 'number'
+        ? amountField
+        : typeof amountField === 'string'
+          ? parseInt(amountField)
           : 0;
     if (!Number.isInteger(amountValue) || amountValue === 0) {
       errors.push({
         row: 0,
         field: 'amount',
         value:
-          typeof data.amount === 'object' && data.amount instanceof Date
-            ? data.amount.toString()
-            : (data.amount ?? null),
+          typeof amountField === 'object' && amountField instanceof Date
+            ? amountField.toString()
+            : (amountField ?? null),
         message: 'Amount must be a non-zero integer',
       });
     }

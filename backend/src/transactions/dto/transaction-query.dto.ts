@@ -36,7 +36,10 @@ export class TransactionQueryDto {
     return [];
   })
   @IsArray({ message: 'category_id must be an array of UUIDs' })
-  @IsUUID('4', { each: true, message: 'Each category_id must be a valid UUID' })
+  @IsUUID('all', {
+    each: true,
+    message: 'Each category_id must be a valid UUID',
+  })
   category_id?: string[];
 
   @IsOptional()
@@ -50,7 +53,7 @@ export class TransactionQueryDto {
     return [];
   })
   @IsArray({ message: 'actor_id must be an array of UUIDs' })
-  @IsUUID('4', { each: true, message: 'Each actor_id must be a valid UUID' })
+  @IsUUID('all', { each: true, message: 'Each actor_id must be a valid UUID' })
   actor_id?: string[];
 
   @IsOptional()
@@ -107,14 +110,29 @@ export class TransactionQueryDto {
 
   // Sorting
   @IsOptional()
-  @IsIn(['occurred_on', 'amount_yen', 'created_at', 'updated_at'], {
-    message:
-      'sort must be one of: occurred_on, amount_yen, created_at, updated_at',
-  })
+  @IsIn(
+    [
+      'occurred_on',
+      '-occurred_on',
+      'amount_yen',
+      '-amount_yen',
+      'created_at',
+      '-created_at',
+      'updated_at',
+      '-updated_at',
+    ],
+    {
+      message:
+        'sort must be one of: occurred_on, -occurred_on, amount_yen, -amount_yen, created_at, -created_at, updated_at, -updated_at',
+    },
+  )
   sort?: string = '-occurred_on';
 
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => {
+    if (typeof value === 'boolean') {
+      return value;
+    }
     return value === 'true' || value === '1';
   })
   include_deleted?: boolean = false;
