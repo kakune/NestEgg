@@ -13,7 +13,7 @@
 - [x] **Phase 3:** Transaction Management (2/2 sections) ✅ - **Testing Complete** (Phase 3.1 & 3.2 comprehensive test suites implemented)
 - [x] **Phase 4:** Settlement Algorithm (2/2 sections) ✅ - **Testing Complete** (Phase 4.1 & 4.2 comprehensive test suites implemented)
 - [x] **Phase 5:** API Layer & Validation (2/2 sections) ✅ 
-- [ ] **Phase 6:** Frontend Implementation (2/3 sections) - **6.1 & 6.2 Complete** (Next.js setup with TanStack Query, authentication, UI components, and transaction management implemented)
+- [ ] **Phase 6:** Frontend Implementation (2/3 sections) - **6.1 & 6.2 Complete** (Next.js setup with TanStack Query, authentication, UI components, transaction management, category & actor management implemented)
 - [x] **Phase 7:** Testing & Quality Assurance (3/3 sections) ✅ - **All Tests Complete** (Infrastructure + Business Logic + Database Schema validation implemented with 100% coverage and zero lint errors)
 - [ ] **Phase 8:** DevOps & Deployment (0/2 sections)
 - [ ] **Phase 9:** Advanced Features (0/3 sections)
@@ -564,36 +564,36 @@
   - [x] Add transaction editing interface
   - [x] Implement transaction deletion with confirmation
 
-- [ ] **Create category management interface**
-  - [ ] Build hierarchical category tree display
-  - [ ] Implement category creation and editing forms
-  - [ ] Add drag-and-drop for hierarchy changes
-  - [ ] Create category deletion with usage validation
+- [x] **Create category management interface** ✅
+  - [x] Build hierarchical category tree display
+  - [x] Implement category creation and editing forms
+  - [x] Add drag-and-drop for hierarchy changes
+  - [x] Create category deletion with usage validation
 
-- [ ] **Implement actor management**
-  - [ ] Create actor list and management interface
-  - [ ] Build actor creation forms
-  - [ ] Add actor activation/deactivation controls
-  - [ ] Implement actor editing functionality
+- [x] **Implement actor management** ✅
+  - [x] Create actor list and management interface
+  - [x] Build actor creation forms
+  - [x] Add actor activation/deactivation controls
+  - [x] Implement actor editing functionality
 
 #### Testing Requirements
 - [x] **UI component tests** ✅
   - [x] Test transaction CRUD operations
   - [x] Test form validation and submission
-  - [ ] Test category tree manipulation
-  - [ ] Test actor management functionality
+  - [x] Test category tree manipulation
+  - [x] Test actor management functionality
 
-- [ ] **User interaction tests**
-  - [ ] Test drag-and-drop functionality
-  - [ ] Test confirmation dialogs
-  - [ ] Test form error handling
-  - [ ] Test responsive behavior
+- [x] **User interaction tests** ✅
+  - [x] Test drag-and-drop functionality
+  - [x] Test confirmation dialogs
+  - [x] Test form error handling
+  - [x] Test responsive behavior
 
 #### Acceptance Criteria
 - [x] Transaction CRUD operations work correctly ✅
 - [x] Transaction forms validate input properly ✅
-- [ ] Category hierarchy is manageable
-- [ ] User interactions are intuitive
+- [x] Category hierarchy is manageable ✅
+- [x] User interactions are intuitive ✅
 
 ---
 
