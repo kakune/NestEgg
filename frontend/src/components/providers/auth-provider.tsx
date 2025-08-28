@@ -25,8 +25,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUser = useCallback(async () => {
     try {
       const response = await api.get('/auth/me');
-      setUser(response.data);
-      return response.data;
+      const userData = response.data.data || response.data;
+      setUser(userData);
+      return userData;
     } catch (error) {
       setUser(null);
       throw error;
@@ -45,36 +46,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUser]);
 
   useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+    // Initialize token from localStorage and fetch user once on mount
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      }
+      await refreshUser();
+    };
+    
+    initializeAuth();
+  }, []); // Empty dependency array - only run once on mount
 
   const login = async (email: string, password: string) => {
     const response = await api.post('/auth/login', { email, password });
-    const { accessToken, user } = response.data;
+    const { accessToken, user } = response.data.data;
     
     // Store the token
     localStorage.setItem('accessToken', accessToken);
     api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
     
     setUser(user);
-    router.push('/');
+    // Don't redirect here - let the calling component handle the redirect
   };
 
   const register = async (email: string, password: string, name: string) => {
     const response = await api.post('/auth/register', { 
       email, 
       password, 
-      name,
-      householdName: `${name}'s Household` 
+      name
     });
-    const { accessToken, user } = response.data;
+    const { accessToken, user } = response.data.data;
     
     // Store the token
     localStorage.setItem('accessToken', accessToken);
     api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
     
     setUser(user);
-    router.push('/');
+    // Don't redirect here - let the calling component handle the redirect
   };
 
   const logout = async () => {
@@ -87,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('accessToken');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    router.push('/login');
+    router.push('/auth/signin');
   };
 
   const value = {

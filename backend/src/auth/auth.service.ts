@@ -146,7 +146,7 @@ export class AuthService {
     }
 
     // Hash password
-    const saltRounds = this.configService.get<number>('BCRYPT_ROUNDS', 12);
+    const saltRounds = this.configService.get<number>('security.bcryptRounds', 12);
     const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
 
     // Create household for the first user (admin)
@@ -304,7 +304,7 @@ export class AuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    const saltRounds = this.configService.get<number>('BCRYPT_ROUNDS', 12);
+    const saltRounds = this.configService.get<number>('security.bcryptRounds', 12);
     return bcrypt.hash(password, saltRounds);
   }
 

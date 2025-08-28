@@ -14,11 +14,11 @@ services:
   backend:
     image: node:20-alpine
     working_dir: /usr/src/app
-    command: sh -c "cd backend && npm install && npm run start:dev"
+    command: sh -c "cd backend && npm install && npx prisma generate && npm run start:dev"
     volumes:
       - .:/usr/src/app
     ports:
-      - '3000:3000'
+      - '5173:3000'
     depends_on:
       - db
     env_file:
@@ -33,11 +33,13 @@ services:
   frontend:
     image: node:20-alpine
     working_dir: /usr/src/app
-    command: sh -c "cd frontend && npm install && npm run dev -- --host"
+    command: sh -c "cd frontend && npm install && npm run dev -- -H 0.0.0.0"
     volumes:
       - .:/usr/src/app
     ports:
-      - '5173:5173'
+      - '3000:3000'
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

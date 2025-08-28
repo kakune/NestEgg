@@ -6,12 +6,12 @@ export enum UserRole {
 export interface User {
   id: string;
   email: string;
-  name: string;
+  name: string | null;
   role: UserRole;
   householdId: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Household {
