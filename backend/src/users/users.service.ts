@@ -18,6 +18,7 @@ export type PublicUser = Omit<User, 'passwordHash'>;
 
 export interface CreateUserDto {
   email: string;
+  username: string;
   name: string;
   role?: UserRole;
   householdId: string;
@@ -27,6 +28,7 @@ export interface UpdateUserDto {
   name?: string;
   role?: UserRole;
   email?: string;
+  username?: string;
 }
 
 export interface ChangePasswordDto {
@@ -50,6 +52,7 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
           name: true,
           role: true,
           householdId: true,
@@ -71,6 +74,7 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
           name: true,
           role: true,
           householdId: true,
@@ -94,6 +98,7 @@ export class UsersService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         role: true,
         householdId: true,
@@ -129,6 +134,7 @@ export class UsersService {
       const user = await prisma.user.create({
         data: {
           email: createUserDto.email.toLowerCase(),
+          username: createUserDto.username.toLowerCase(),
           name: createUserDto.name,
           role: createUserDto.role || UserRole.member,
           householdId: createUserDto.householdId,
@@ -137,6 +143,7 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
           name: true,
           role: true,
           householdId: true,
@@ -218,6 +225,7 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
           name: true,
           role: true,
           householdId: true,

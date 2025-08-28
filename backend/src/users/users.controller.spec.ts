@@ -27,6 +27,7 @@ describe('UsersController', () => {
   const mockPublicUser: PublicUser = {
     id: 'user-1',
     email: 'test@example.com',
+    username: 'testuser',
     name: 'Test User',
     householdId: 'household-1',
     role: UserRole.member,
@@ -101,6 +102,7 @@ describe('UsersController', () => {
           ...mockPublicUser,
           id: 'user-2',
           email: 'user2@example.com',
+          username: 'user2',
           name: 'User Two',
         },
       ];
@@ -151,6 +153,7 @@ describe('UsersController', () => {
     it('should create a new user (admin only)', async () => {
       const createUserDto = {
         email: 'newuser@example.com',
+        username: 'newuser',
         name: 'New User',
         role: UserRole.member,
         householdId: 'household-1',
@@ -159,6 +162,7 @@ describe('UsersController', () => {
       const newUser: PublicUser = {
         id: 'user-new',
         email: 'newuser@example.com',
+        username: 'newuser',
         name: 'New User',
         householdId: 'household-1',
         role: UserRole.member,
@@ -182,6 +186,7 @@ describe('UsersController', () => {
     it('should handle validation errors', async () => {
       const createUserDto = {
         email: 'invalid-email',
+        username: 'invaliduser',
         name: '',
         role: UserRole.member,
         householdId: 'household-1',
@@ -202,6 +207,7 @@ describe('UsersController', () => {
     it('should handle duplicate email', async () => {
       const createUserDto = {
         email: 'existing@example.com',
+        username: 'existinguser',
         name: 'Duplicate User',
         role: UserRole.member,
         householdId: 'household-1',

@@ -88,6 +88,7 @@ model User {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   householdId  String    @map("household_id") @db.Uuid
   email        String    @db.Citext
+  username     String    @db.VarChar(50)
   name         String    @db.VarChar(100)
   role         UserRole  @default(member)
   passwordHash String    @map("password_hash")
@@ -109,8 +110,10 @@ model User {
   personalAccessTokens PersonalAccessToken[]
 
   @@unique([householdId, email], map: "unique_household_email")
+  @@unique([householdId, username], map: "unique_household_username")
   @@index([householdId])
   @@index([email])
+  @@index([username])
   @@index([householdId, role], map: "users_household_role_idx")
   @@map("users")
 }

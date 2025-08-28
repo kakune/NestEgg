@@ -18,6 +18,7 @@ import { CreatePersonalAccessTokenDto } from './dto/create-personal-access-token
 export interface JwtPayload {
   sub: string; // userId
   email: string;
+  username: string;
   householdId: string;
   role: UserRole;
   sessionId?: string;
@@ -28,6 +29,7 @@ export interface JwtPayload {
 interface AuthUser {
   id: string;
   email: string;
+  username: string;
   name: string | null;
   role: UserRole;
   householdId: string;
@@ -39,6 +41,7 @@ interface AuthUser {
 export interface SafeUser {
   id: string;
   email: string;
+  username: string;
   name: string | null;
   role: UserRole;
   householdId: string;
@@ -50,6 +53,7 @@ export interface AuthResponse {
   user: {
     id: string;
     email: string;
+    username: string;
     name: string | null;
     householdId: string;
     role: UserRole;
@@ -66,12 +70,13 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<SafeUser> {
+  async validateUser(username: string, password: string): Promise<SafeUser> {
     const user = (await this.prismaService.prisma.user.findFirst({
-      where: { email: email.toLowerCase() },
+      where: { username: username.toLowerCase() },
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         role: true,
         householdId: true,
@@ -96,7 +101,7 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+    const user = await this.validateUser(loginDto.username, loginDto.password);
 
     // Create session
     const session = await this.prismaService.prisma.session.create({
@@ -113,6 +118,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      username: user.username,
       householdId: user.householdId,
       role: user.role,
       sessionId: session.id,
@@ -127,6 +133,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         name: user.name,
         householdId: user.householdId,
         role: user.role,
@@ -136,17 +143,30 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
-    // Check if user already exists
-    const existingUser = await this.prismaService.prisma.user.findFirst({
-      where: { email: registerDto.email.toLowerCase() },
-    });
+    // Check if user already exists with email or username
+    const existingUserWithEmail =
+      await this.prismaService.prisma.user.findFirst({
+        where: { email: registerDto.email.toLowerCase() },
+      });
 
-    if (existingUser) {
+    if (existingUserWithEmail) {
       throw new ConflictException('User with this email already exists');
     }
 
+    const existingUserWithUsername =
+      await this.prismaService.prisma.user.findFirst({
+        where: { username: registerDto.username.toLowerCase() },
+      });
+
+    if (existingUserWithUsername) {
+      throw new ConflictException('User with this username already exists');
+    }
+
     // Hash password
-    const saltRounds = this.configService.get<number>('security.bcryptRounds', 12);
+    const saltRounds = this.configService.get<number>(
+      'security.bcryptRounds',
+      12,
+    );
     const passwordHash = await bcrypt.hash(registerDto.password, saltRounds);
 
     // Create household for the first user (admin)
@@ -164,6 +184,7 @@ export class AuthService {
     const user = (await this.prismaService.prisma.user.create({
       data: {
         email: registerDto.email.toLowerCase(),
+        username: registerDto.username.toLowerCase(),
         name: registerDto.name,
         passwordHash,
         householdId,
@@ -175,6 +196,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         householdId: true,
         role: true,
@@ -182,6 +204,7 @@ export class AuthService {
     })) as {
       id: string;
       email: string;
+      username: string;
       name: string | null;
       householdId: string;
       role: UserRole;
@@ -202,6 +225,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      username: user.username,
       householdId: user.householdId,
       role: user.role,
       sessionId: session.id,
@@ -233,12 +257,14 @@ export class AuthService {
       select: {
         id: true,
         email: true,
+        username: true,
         householdId: true,
         role: true,
       },
     })) as {
       id: string;
       email: string;
+      username: string;
       householdId: string;
       role: UserRole;
     } | null;
@@ -266,6 +292,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
+      username: user.username,
       householdId: user.householdId,
       role: user.role,
       tokenType: 'pat',
@@ -304,7 +331,10 @@ export class AuthService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    const saltRounds = this.configService.get<number>('security.bcryptRounds', 12);
+    const saltRounds = this.configService.get<number>(
+      'security.bcryptRounds',
+      12,
+    );
     return bcrypt.hash(password, saltRounds);
   }
 

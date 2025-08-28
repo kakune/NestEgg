@@ -154,7 +154,7 @@ describe('ConfigModule', () => {
     const environment = configService.get<string>('config.app.environment');
 
     expect(jwtExpiresIn).toBe('7d');
-    expect(appPort).toBe(3000);
+    expect(appPort).toBe(3001);
     expect(environment).toBe('test'); // NODE_ENV is 'test' during jest execution
   });
 

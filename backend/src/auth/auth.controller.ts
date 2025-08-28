@@ -52,6 +52,7 @@ export class AuthController {
       user: {
         id: user.userId,
         email: user.email,
+        username: user.username,
         name: user.name,
         householdId: user.householdId,
         role: user.role,

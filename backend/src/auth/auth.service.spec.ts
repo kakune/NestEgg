@@ -64,6 +64,7 @@ describe('AuthService', () => {
   const mockSafeUser: SafeUser = {
     id: 'user-1',
     email: 'test@example.com',
+    username: 'testuser',
     name: 'Test User',
     role: UserRole.admin,
     householdId: 'household-1',
@@ -176,10 +177,11 @@ describe('AuthService', () => {
       await service.validateUser('TEST@EXAMPLE.COM', 'password');
 
       expectUserFindFirstCalled({
-        where: { email: 'test@example.com' },
+        where: { username: 'test@example.com' },
         select: {
           id: true,
           email: true,
+          username: true,
           name: true,
           role: true,
           householdId: true,
@@ -226,7 +228,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     const loginDto: LoginDto = {
-      email: 'test@example.com',
+      username: 'testuser',
       password: 'password',
       ipAddress: '127.0.0.1',
       userAgent: 'test-agent',
@@ -308,6 +310,7 @@ describe('AuthService', () => {
   describe('register', () => {
     const registerDto: RegisterDto = {
       email: 'newuser@example.com',
+      username: 'newuser',
       password: 'password',
       name: 'New User',
       ipAddress: '127.0.0.1',
@@ -725,7 +728,7 @@ describe('AuthService', () => {
       });
 
       const loginDto: LoginDto = {
-        email: 'test@example.com',
+        username: 'testuser',
         password: 'password',
         ipAddress: '127.0.0.1',
         userAgent: 'test-agent',

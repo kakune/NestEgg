@@ -11,5 +11,6 @@ export interface AuthenticatedUser {
   householdId: string;
   role: UserRole;
   email?: string;
+  username?: string;
   name?: string;
 }

@@ -54,6 +54,7 @@ describe('UsersService', () => {
   const mockUser: User = {
     id: 'user-1',
     email: 'test@example.com',
+    username: 'testuser',
     name: 'Test User',
     role: UserRole.admin,
     householdId: 'household-1',
@@ -66,6 +67,7 @@ describe('UsersService', () => {
   const mockUserSafe = {
     id: 'user-1',
     email: 'test@example.com',
+    username: 'testuser',
     name: 'Test User',
     role: UserRole.admin,
     householdId: 'household-1',
@@ -299,6 +301,7 @@ describe('UsersService', () => {
   describe('create', () => {
     const createUserDto: CreateUserDto = {
       email: 'newuser@example.com',
+      username: 'newuser',
       name: 'New User',
       role: UserRole.member,
       householdId: 'household-1',
@@ -309,6 +312,7 @@ describe('UsersService', () => {
         ...mockUserSafe,
         id: 'user-2',
         email: 'newuser@example.com',
+        username: 'newuser',
         name: 'New User',
         role: UserRole.member,
       };
@@ -381,6 +385,7 @@ describe('UsersService', () => {
     it('should default to member role when not specified', async () => {
       const createUserDtoNoRole = {
         email: 'newuser@example.com',
+        username: 'newuser',
         name: 'New User',
         householdId: 'household-1',
       };
@@ -1063,6 +1068,7 @@ describe('UsersService', () => {
 
       const createUserDto: CreateUserDto = {
         email: 'test@example.com',
+        username: 'testuser',
         name: 'Test User',
         householdId: 'household-1',
       };

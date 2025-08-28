@@ -29,6 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         role: true,
         householdId: true,
@@ -72,6 +73,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: payload.sub,
       email: payload.email,
+      username: payload.username,
       name: user.name,
       householdId: payload.householdId,
       role: payload.role,

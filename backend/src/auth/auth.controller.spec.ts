@@ -63,6 +63,7 @@ describe('AuthController', () => {
     it('should register a new user', async () => {
       const registerDto = {
         email: 'newuser@example.com',
+        username: 'newuser',
         password: 'StrongPassword123!',
         name: 'New User',
       };
@@ -79,6 +80,7 @@ describe('AuthController', () => {
     it('should handle registration with household name', async () => {
       const registerDto = {
         email: 'newuser@example.com',
+        username: 'newuser2',
         password: 'StrongPassword123!',
         name: 'New User',
         householdName: 'New Household',
@@ -96,7 +98,7 @@ describe('AuthController', () => {
   describe('login', () => {
     it('should login a user', async () => {
       const loginDto = {
-        email: 'test@example.com',
+        username: 'testuser',
         password: 'password123',
       };
 
@@ -111,7 +113,7 @@ describe('AuthController', () => {
 
     it('should handle invalid credentials', async () => {
       const loginDto = {
-        email: 'test@example.com',
+        username: 'testuser',
         password: 'wrongpassword',
       };
 

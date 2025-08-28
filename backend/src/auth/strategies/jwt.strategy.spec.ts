@@ -17,6 +17,7 @@ describe('JwtStrategy', () => {
   const mockUser = {
     id: 'user-1',
     email: 'test@example.com',
+    username: 'testuser',
     name: 'Test User',
     role: UserRole.admin,
     householdId: 'household-1',
@@ -93,6 +94,7 @@ describe('JwtStrategy', () => {
       const accessTokenPayload: JwtPayload = {
         sub: 'user-1',
         email: 'test@example.com',
+        username: 'testuser',
         householdId: 'household-1',
         role: UserRole.admin,
         sessionId: 'session-1',
@@ -115,6 +117,8 @@ describe('JwtStrategy', () => {
         expect(result).toEqual({
           userId: 'user-1',
           email: 'test@example.com',
+          username: 'testuser',
+          name: 'Test User',
           householdId: 'household-1',
           role: UserRole.admin,
           sessionId: 'session-1',
@@ -221,6 +225,7 @@ describe('JwtStrategy', () => {
         const payloadWithoutSession = {
           sub: accessTokenPayload.sub,
           email: accessTokenPayload.email,
+          username: accessTokenPayload.username,
           householdId: accessTokenPayload.householdId,
           role: accessTokenPayload.role,
           tokenType: accessTokenPayload.tokenType,
@@ -240,6 +245,7 @@ describe('JwtStrategy', () => {
       const patPayload: JwtPayload = {
         sub: 'user-1',
         email: 'test@example.com',
+        username: 'testuser',
         householdId: 'household-1',
         role: UserRole.admin,
         tokenType: 'pat',
@@ -258,6 +264,8 @@ describe('JwtStrategy', () => {
         expect(result).toEqual({
           userId: 'user-1',
           email: 'test@example.com',
+          username: 'testuser',
+          name: 'Test User',
           householdId: 'household-1',
           role: UserRole.admin,
           sessionId: undefined,
@@ -334,6 +342,7 @@ describe('JwtStrategy', () => {
       const basePayload: JwtPayload = {
         sub: 'user-1',
         email: 'test@example.com',
+        username: 'testuser',
         householdId: 'household-1',
         role: UserRole.member,
         tokenType: 'pat',
@@ -417,6 +426,7 @@ describe('JwtStrategy', () => {
         const accessPayload: JwtPayload = {
           sub: 'user-1',
           email: 'test@example.com',
+          username: 'testuser',
           householdId: 'household-1',
           role: UserRole.admin,
           sessionId: 'session-1',
@@ -454,6 +464,7 @@ describe('JwtStrategy', () => {
         const accessPayload: JwtPayload = {
           sub: 'user-1',
           email: 'test@example.com',
+          username: 'testuser',
           householdId: 'household-1',
           role: UserRole.admin,
           sessionId: 'session-1',
@@ -480,6 +491,7 @@ describe('JwtStrategy', () => {
         const accessPayload: JwtPayload = {
           sub: 'user-1',
           email: 'test@example.com',
+          username: 'testuser',
           householdId: 'household-1',
           role: UserRole.admin,
           sessionId: 'session-1',
