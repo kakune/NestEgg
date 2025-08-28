@@ -153,11 +153,17 @@ export const apiHelpers = {
   getSettlements: (params?: Record<string, unknown>) =>
     api.get('/settlements', { params }),
   
+  getSettlement: (id: string) =>
+    api.get(`/settlements/${id}`),
+  
+  getSettlementByMonth: (month: string) =>
+    api.get(`/settlements/${month}`),
+  
   runSettlement: (year: number, month: number) =>
     api.post('/settlements/run', { year, month }),
   
-  finalizeSettlement: (id: string) =>
-    api.post(`/settlements/${id}/finalize`),
+  finalizeSettlement: (id: string, data?: { confirmed: boolean; notes?: string }) =>
+    api.post(`/settlements/${id}/finalize`, data || { confirmed: true }),
   
   // CSV Import/Export
   uploadTransactionsCsv: (file: File) => {

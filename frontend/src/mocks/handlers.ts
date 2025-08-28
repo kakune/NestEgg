@@ -314,10 +314,252 @@ export const handlers = [
 
   // Settlement endpoints
   http.get('http://localhost:3000/api/v1/settlements', () => {
+    const mockSettlements = [
+      {
+        id: 'settlement-1',
+        household_id: '1',
+        month: '2025-08-01',
+        status: 'DRAFT',
+        computed_at: '2025-09-01T02:00:00Z',
+        summary: {
+          total_household_expenses_yen: 450000,
+          total_personal_expenses_yen: 25000,
+          participant_count: 2,
+          transfer_count: 1,
+        },
+        lines: [
+          {
+            id: 'line-1',
+            from_user: {
+              id: '2',
+              name: 'Jane Doe',
+              email: 'jane@example.com',
+              role: 'member',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            to_user: {
+              id: '1',
+              name: 'John Doe',
+              email: 'john@example.com',
+              role: 'admin',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            amount_yen: 125000,
+            description: 'Net household settlement for August 2025',
+          },
+        ],
+        user_details: [
+          {
+            user: {
+              id: '1',
+              name: 'John Doe',
+              email: 'john@example.com',
+              role: 'admin',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            income_allocation_yen: 287500,
+            household_share_yen: 281250,
+            household_paid_yen: 275000,
+            personal_net_yen: -10000,
+            final_balance_yen: -16250,
+          },
+          {
+            user: {
+              id: '2',
+              name: 'Jane Doe',
+              email: 'jane@example.com',
+              role: 'member',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            income_allocation_yen: 200000,
+            household_share_yen: 168750,
+            household_paid_yen: 175000,
+            personal_net_yen: 15000,
+            final_balance_yen: 21250,
+          },
+        ],
+        created_at: '2025-09-01T02:00:00Z',
+        updated_at: '2025-09-01T02:00:00Z',
+      },
+      {
+        id: 'settlement-2',
+        household_id: '1',
+        month: '2025-07-01',
+        status: 'FINALIZED',
+        computed_at: '2025-08-01T02:00:00Z',
+        finalized_at: '2025-08-05T10:30:00Z',
+        finalized_by: {
+          id: '1',
+          name: 'John Doe',
+          email: 'john@example.com',
+          role: 'admin',
+          household_id: '1',
+          created_at: '2025-01-01T00:00:00Z',
+          updated_at: '2025-01-01T00:00:00Z',
+        },
+        summary: {
+          total_household_expenses_yen: 380000,
+          total_personal_expenses_yen: 15000,
+          participant_count: 2,
+          transfer_count: 1,
+        },
+        lines: [
+          {
+            id: 'line-2',
+            from_user: {
+              id: '2',
+              name: 'Jane Doe',
+              email: 'jane@example.com',
+              role: 'member',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            to_user: {
+              id: '1',
+              name: 'John Doe',
+              email: 'john@example.com',
+              role: 'admin',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            amount_yen: 98000,
+            description: 'Net household settlement for July 2025',
+          },
+        ],
+        user_details: [
+          {
+            user: {
+              id: '1',
+              name: 'John Doe',
+              email: 'john@example.com',
+              role: 'admin',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            income_allocation_yen: 287500,
+            household_share_yen: 238000,
+            household_paid_yen: 230000,
+            personal_net_yen: -8000,
+            final_balance_yen: -16000,
+          },
+          {
+            user: {
+              id: '2',
+              name: 'Jane Doe',
+              email: 'jane@example.com',
+              role: 'member',
+              household_id: '1',
+              created_at: '2025-01-01T00:00:00Z',
+              updated_at: '2025-01-01T00:00:00Z',
+            },
+            income_allocation_yen: 200000,
+            household_share_yen: 142000,
+            household_paid_yen: 150000,
+            personal_net_yen: 7000,
+            final_balance_yen: 15000,
+          },
+        ],
+        created_at: '2025-08-01T02:00:00Z',
+        updated_at: '2025-08-05T10:30:00Z',
+      },
+    ];
+
     return HttpResponse.json({
-      data: [],
-      meta: { total: 0 },
+      data: mockSettlements,
+      meta: { total: mockSettlements.length },
     });
+  }),
+
+  http.get('http://localhost:3000/api/v1/settlements/:id', ({ params }) => {
+    const { id } = params;
+    
+    const mockSettlement = {
+      id: id,
+      household_id: '1',
+      month: '2025-08-01',
+      status: 'DRAFT',
+      computed_at: '2025-09-01T02:00:00Z',
+      summary: {
+        total_household_expenses_yen: 450000,
+        total_personal_expenses_yen: 25000,
+        participant_count: 2,
+        transfer_count: 1,
+      },
+      lines: [
+        {
+          id: 'line-1',
+          from_user: {
+            id: '2',
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+            role: 'member',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          to_user: {
+            id: '1',
+            name: 'John Doe',
+            email: 'john@example.com',
+            role: 'admin',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          amount_yen: 125000,
+          description: 'Net household settlement for August 2025',
+        },
+      ],
+      user_details: [
+        {
+          user: {
+            id: '1',
+            name: 'John Doe',
+            email: 'john@example.com',
+            role: 'admin',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          income_allocation_yen: 287500,
+          household_share_yen: 281250,
+          household_paid_yen: 275000,
+          personal_net_yen: -10000,
+          final_balance_yen: -16250,
+        },
+        {
+          user: {
+            id: '2',
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+            role: 'member',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          income_allocation_yen: 200000,
+          household_share_yen: 168750,
+          household_paid_yen: 175000,
+          personal_net_yen: 15000,
+          final_balance_yen: 21250,
+        },
+      ],
+      created_at: '2025-09-01T02:00:00Z',
+      updated_at: '2025-09-01T02:00:00Z',
+    };
+
+    return HttpResponse.json({ data: mockSettlement });
   }),
 
   http.post('http://localhost:3000/api/v1/settlements/run', async ({ request }) => {
@@ -325,19 +567,104 @@ export const handlers = [
       year: number;
       month: number;
     };
-    return HttpResponse.json({
-      id: '1',
-      year: body.year,
-      month: body.month,
+
+    const mockSettlement = {
+      id: `settlement-${Date.now()}`,
+      household_id: '1',
+      month: `${body.year}-${String(body.month).padStart(2, '0')}-01`,
       status: 'DRAFT',
-    }, { status: 201 });
+      computed_at: new Date().toISOString(),
+      summary: {
+        total_household_expenses_yen: 450000,
+        total_personal_expenses_yen: 25000,
+        participant_count: 2,
+        transfer_count: 1,
+      },
+      lines: [
+        {
+          id: `line-${Date.now()}`,
+          from_user: {
+            id: '2',
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+            role: 'member',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          to_user: {
+            id: '1',
+            name: 'John Doe',
+            email: 'john@example.com',
+            role: 'admin',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          amount_yen: 125000,
+          description: `Net household settlement for ${new Date(body.year, body.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
+        },
+      ],
+      user_details: [
+        {
+          user: {
+            id: '1',
+            name: 'John Doe',
+            email: 'john@example.com',
+            role: 'admin',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          income_allocation_yen: 287500,
+          household_share_yen: 281250,
+          household_paid_yen: 275000,
+          personal_net_yen: -10000,
+          final_balance_yen: -16250,
+        },
+        {
+          user: {
+            id: '2',
+            name: 'Jane Doe',
+            email: 'jane@example.com',
+            role: 'member',
+            household_id: '1',
+            created_at: '2025-01-01T00:00:00Z',
+            updated_at: '2025-01-01T00:00:00Z',
+          },
+          income_allocation_yen: 200000,
+          household_share_yen: 168750,
+          household_paid_yen: 175000,
+          personal_net_yen: 15000,
+          final_balance_yen: 21250,
+        },
+      ],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    return HttpResponse.json({ data: mockSettlement }, { status: 200 });
   }),
 
   http.post('http://localhost:3000/api/v1/settlements/:id/finalize', ({ params }) => {
-    return HttpResponse.json({
-      id: params.id,
+    const { id } = params;
+    
+    const finalizedSettlement = {
+      id: id,
       status: 'FINALIZED',
-    });
+      finalized_at: new Date().toISOString(),
+      finalized_by: {
+        id: '1',
+        name: 'John Doe',
+        email: 'john@example.com',
+        role: 'admin',
+        household_id: '1',
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      },
+    };
+
+    return HttpResponse.json({ data: finalizedSettlement });
   }),
 
   // CSV Import/Export endpoints

@@ -73,28 +73,53 @@ export enum SettlementStatus {
   FINALIZED = 'FINALIZED',
 }
 
+export interface SettlementSummary {
+  total_household_expenses_yen: number;
+  total_personal_expenses_yen: number;
+  participant_count: number;
+  transfer_count: number;
+}
+
+export interface SettlementUserDetail {
+  user: User;
+  income_allocation_yen: number;
+  household_share_yen: number;
+  household_paid_yen: number;
+  personal_net_yen: number;
+  final_balance_yen: number;
+}
+
 export interface Settlement {
   id: string;
-  year: number;
-  month: number;
+  household_id: string;
+  month: string; // ISO date format YYYY-MM-DD
   status: SettlementStatus;
-  totalExpenses: number;
+  computed_at: string; // ISO datetime
+  finalized_at?: string; // ISO datetime
+  finalized_by?: User;
+  summary: SettlementSummary;
   lines: SettlementLine[];
-  householdId: string;
-  createdAt: string;
-  updatedAt: string;
-  finalizedAt?: string;
+  user_details: SettlementUserDetail[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SettlementLine {
   id: string;
-  settlementId: string;
-  fromUserId: string;
-  fromUser?: User;
-  toUserId: string;
-  toUser?: User;
-  amount: number;
-  description?: string;
+  from_user: User;
+  to_user: User;
+  amount_yen: number;
+  description: string;
+}
+
+export interface SettlementRunRequest {
+  year: number;
+  month: number;
+}
+
+export interface SettlementFinalizeRequest {
+  confirmed: boolean;
+  notes?: string;
 }
 
 import { User } from './user';
