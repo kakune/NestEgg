@@ -1,55 +1,9 @@
 import { CurrentUser } from './user.decorator';
-
-interface MockUser {
-  id?: string | number;
-  email?: string;
-  role?: string;
-  householdId?: string;
-  name?: string;
-  roles?: string[];
-  isActive?: boolean;
-  isVerified?: boolean;
-  score?: number;
-  count?: number;
-  optionalField?: unknown;
-  anotherField?: string;
-  createdAt?: Date;
-  profile?: {
-    personal?: {
-      name?: string;
-      age?: number;
-    };
-    preferences?: {
-      theme?: string;
-      notifications?: boolean;
-    };
-    name?: string;
-    age?: number;
-  };
-  metadata?: {
-    lastLogin?: Date;
-    loginCount?: number;
-  };
-}
-
-interface MockRequest {
-  user?: MockUser | null | undefined;
-}
-
-interface MockHttpContext {
-  getRequest(): MockRequest;
-}
-
-interface MockExecutionContext {
-  switchToHttp(): MockHttpContext;
-  getHandler(): unknown;
-  getClass(): unknown;
-  switchToRpc(): unknown;
-  switchToWs(): unknown;
-  getType(): unknown;
-  getArgs(): unknown;
-  getArgByIndex(index: number): unknown;
-}
+import {
+  MockExecutionContext,
+  MockRequest,
+  MockUser,
+} from '../../test/test-utils';
 
 describe('CurrentUser Decorator', () => {
   let mockContext: MockExecutionContext;

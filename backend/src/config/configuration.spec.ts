@@ -1,43 +1,5 @@
 import configuration from './configuration';
-
-interface DatabaseConfig {
-  url: string;
-}
-
-interface JwtConfig {
-  secret: string;
-  expiresIn: string;
-}
-
-interface AppConfig {
-  port: number;
-  environment: string;
-}
-
-interface SecurityConfig {
-  bcryptRounds: number;
-  corsOrigin: string;
-  rateLimitTtl: number;
-  rateLimitMax: number;
-}
-
-interface LoggingConfig {
-  level: string;
-  prettyPrint: boolean;
-}
-
-interface ConfigurationResult {
-  database: DatabaseConfig;
-  jwt: JwtConfig;
-  app: AppConfig;
-  security: SecurityConfig;
-  logging: LoggingConfig;
-}
-
-interface ConfigurationFactory {
-  (): ConfigurationResult;
-  KEY: string;
-}
+import { ConfigurationResult, ConfigurationFactory } from './config.types';
 
 describe('Configuration', () => {
   const originalEnv = process.env;

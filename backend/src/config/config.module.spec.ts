@@ -4,40 +4,16 @@ import {
   ConfigService,
 } from '@nestjs/config';
 import { ConfigModule } from './config.module';
+import {
+  DatabaseConfig,
+  JwtConfig,
+  AppConfig,
+  SecurityConfig,
+  LoggingConfig,
+  ConfigurationResult,
+} from './config.types';
 
-interface DatabaseConfig {
-  url: string;
-}
-
-interface JwtConfig {
-  secret: string;
-  expiresIn: string;
-}
-
-interface AppConfig {
-  port: number;
-  environment: string;
-}
-
-interface SecurityConfig {
-  bcryptRounds: number;
-  corsOrigin: string;
-  rateLimitTtl: number;
-  rateLimitMax: number;
-}
-
-interface LoggingConfig {
-  level: string;
-  prettyPrint: boolean;
-}
-
-interface FullConfig {
-  database: DatabaseConfig;
-  jwt: JwtConfig;
-  app: AppConfig;
-  security: SecurityConfig;
-  logging: LoggingConfig;
-}
+type FullConfig = ConfigurationResult;
 
 describe('ConfigModule', () => {
   let module: TestingModule;

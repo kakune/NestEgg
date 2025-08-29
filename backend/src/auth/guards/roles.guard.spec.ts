@@ -4,29 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { UserRole } from '@prisma/client';
 import { RolesGuard } from './roles.guard';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
-
-interface MockRequest {
-  user?: {
-    role?: UserRole | undefined;
-  };
-}
-
-interface MockHttpContext {
-  getRequest(): MockRequest;
-  getResponse(): unknown;
-  getNext(): unknown;
-}
-
-interface MockExecutionContext {
-  getHandler(): unknown;
-  getClass(): unknown;
-  switchToHttp(): MockHttpContext;
-  switchToRpc(): unknown;
-  switchToWs(): unknown;
-  getType(): unknown;
-  getArgs(): unknown;
-  getArgByIndex(index: number): unknown;
-}
+import { MockExecutionContext, MockRequest } from '../../test/test-utils';
 
 describe('RolesGuard', () => {
   let guard: RolesGuard;

@@ -1,16 +1,11 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerException } from '@nestjs/throttler';
 import { Request, Response } from 'express';
+import { AuthenticatedRequest } from '../../test/test-utils';
 
 interface ThrottlerLimitDetail {
   limit: number;
   ttl: number;
-}
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-  };
 }
 
 @Injectable()
