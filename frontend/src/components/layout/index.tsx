@@ -15,13 +15,13 @@ const PUBLIC_PATHS = ['/auth/signin', '/auth/signup'];
 export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isInitialized } = useAuth();
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
   useEffect(() => {
-    // Only process redirects when auth state is stable (not loading)
-    if (!isLoading) {
+    // Only process redirects when auth state is stable (not loading and initialized)
+    if (!isLoading && isInitialized) {
       // If not authenticated and trying to access protected path
       if (!isAuthenticated && !isPublicPath) {
         // Handle legacy /login path - redirect to /auth/signin without redirect parameter
@@ -42,10 +42,10 @@ export function MainLayout({ children }: MainLayoutProps) {
         }
       }
     }
-  }, [isAuthenticated, isLoading, pathname, isPublicPath, router]);
+  }, [isAuthenticated, isLoading, isInitialized, pathname, isPublicPath, router]);
 
-  // Show loading state while checking authentication
-  if (isLoading) {
+  // Show loading state while checking authentication or during initialization
+  if (isLoading || !isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">

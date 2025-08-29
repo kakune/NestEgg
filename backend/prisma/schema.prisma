@@ -89,7 +89,7 @@ model User {
   householdId  String    @map("household_id") @db.Uuid
   email        String    @db.Citext
   username     String    @db.VarChar(50)
-  name         String    @db.VarChar(100)
+  name         String?   @db.VarChar(100)
   role         UserRole  @default(member)
   passwordHash String    @map("password_hash")
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz

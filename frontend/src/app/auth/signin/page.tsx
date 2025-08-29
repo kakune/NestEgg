@@ -11,19 +11,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 interface FormData {
-  email: string;
+  username: string;
   password: string;
 }
 
 interface FormErrors {
-  email?: string;
+  username?: string;
   password?: string;
   submit?: string;
 }
 
 export default function SignInPage() {
   const [formData, setFormData] = useState<FormData>({
-    email: '',
+    username: '',
     password: '',
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -58,11 +58,13 @@ export default function SignInPage() {
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    // Username validation
+    if (!formData.username) {
+      newErrors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      newErrors.username = 'Username can only contain letters, numbers, hyphens, and underscores';
     }
 
     // Password validation
@@ -104,7 +106,7 @@ export default function SignInPage() {
     setErrors({});
 
     try {
-      await login(formData.email, formData.password);
+      await login(formData.username, formData.password);
       router.push(redirectTo);
     } catch (error) {
       console.error('Login error:', error);
@@ -114,7 +116,7 @@ export default function SignInPage() {
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { status: number; data?: { message?: string } } };
         if (axiosError.response?.status === 401) {
-          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+          errorMessage = 'Invalid username or password. Please check your credentials and try again.';
         } else if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -144,7 +146,7 @@ export default function SignInPage() {
           <CardHeader>
             <CardTitle>Sign in to your account</CardTitle>
             <CardDescription>
-              Enter your email and password to access your household
+              Enter your username and password to access your household
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -161,23 +163,23 @@ export default function SignInPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={formData.email}
-                  onChange={handleInputChange('email')}
-                  className={errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
-                  placeholder="Enter your email"
-                  aria-invalid={!!errors.email}
-                  aria-describedby={errors.email ? 'email-error' : undefined}
+                  value={formData.username}
+                  onChange={handleInputChange('username')}
+                  className={errors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+                  placeholder="Enter your username"
+                  aria-invalid={!!errors.username}
+                  aria-describedby={errors.username ? 'username-error' : undefined}
                 />
-                {errors.email && (
-                  <p id="email-error" className="text-sm text-red-600" role="alert">
-                    {errors.email}
+                {errors.username && (
+                  <p id="username-error" className="text-sm text-red-600" role="alert">
+                    {errors.username}
                   </p>
                 )}
               </div>
@@ -252,7 +254,7 @@ export default function SignInPage() {
                 <h4 className="text-sm font-medium text-blue-800 mb-2">Development Mode</h4>
                 <p className="text-sm text-blue-700 mb-2">Test credentials:</p>
                 <ul className="text-sm text-blue-700 space-y-1">
-                  <li>Email: docker-test@example.com</li>
+                  <li>Username: testuser</li>
                   <li>Password: Password123@</li>
                 </ul>
               </div>

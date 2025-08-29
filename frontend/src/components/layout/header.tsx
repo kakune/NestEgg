@@ -13,11 +13,11 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Menu, User, LogOut, Settings } from 'lucide-react';
 import { useState } from 'react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { MobileSidebar } from './mobile-sidebar';
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading, isInitialized } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const getInitials = (name: string | null) => {
@@ -56,7 +56,12 @@ export function Header() {
 
         <div className="flex items-center gap-x-4 lg:gap-x-6">
           {/* User menu */}
-          {user ? (
+          {isLoading || !isInitialized ? (
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span className="text-sm text-muted-foreground">Loading...</span>
+            </div>
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -71,7 +76,7 @@ export function Header() {
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name || 'User'}</p>
+                    <p className="text-sm font-medium leading-none">{user.name || user.username || user.email}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user.email}
                     </p>
@@ -104,6 +109,10 @@ export function Header() {
       {/* Mobile sidebar */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="left" className="p-0 w-64">
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+          <SheetDescription className="sr-only">
+            Mobile navigation menu for NestEgg application
+          </SheetDescription>
           <MobileSidebar onClose={() => setMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>

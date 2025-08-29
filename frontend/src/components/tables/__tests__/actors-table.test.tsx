@@ -34,6 +34,7 @@ global.confirm = mockConfirm;
 const mockUser: User = {
   id: '1',
   email: 'john@example.com',
+  username: 'john',
   name: 'John Doe',
   role: UserRole.MEMBER,
   householdId: '1',
@@ -71,6 +72,7 @@ const mockActors: Actor[] = [
     user: {
       id: '2',
       email: 'jane@example.com',
+      username: 'jane',
       name: 'Jane Smith',
       role: UserRole.ADMIN,
       householdId: '1',
@@ -211,10 +213,10 @@ describe('ActorsTable', () => {
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
         expect(screen.getByText('Jane Smith')).toBeInTheDocument();
-        expect(screen.getByText((content, element) => 
+        expect(screen.getByText((content) => 
           content.includes('john@example.com')
         )).toBeInTheDocument();
-        expect(screen.getByText((content, element) => 
+        expect(screen.getByText((content) => 
           content.includes('jane@example.com')
         )).toBeInTheDocument();
       });
@@ -659,13 +661,9 @@ describe('ActorsTable', () => {
         const userActorsHeaders = screen.getAllByText('User Actors');
         const instrumentActorsHeaders = screen.getAllByText('Instrument Actors');
         
-        // Get the first occurrence (the section header, not the summary)
-        const userSection = userActorsHeaders[0].closest('div');
-        const instrumentSection = instrumentActorsHeaders[0].closest('div');
-
-        // Find the table sections by looking for the cards containing these headers
-        const userCard = userSection?.closest('.space-y-6 > div') || userSection?.closest('[class*="card"]');
-        const instrumentCard = instrumentSection?.closest('.space-y-6 > div') || instrumentSection?.closest('[class*="card"]');
+        // Verify that both section headers are present
+        expect(userActorsHeaders.length).toBeGreaterThan(0);
+        expect(instrumentActorsHeaders.length).toBeGreaterThan(0);
 
         // Since we can't easily target specific cards, let's just check that all actors are rendered
         expect(screen.getByText('John Doe')).toBeInTheDocument();

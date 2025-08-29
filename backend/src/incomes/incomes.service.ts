@@ -43,7 +43,7 @@ export interface IncomeFilters {
 export interface IncomeWithDetails extends Income {
   user: {
     id: string;
-    name: string;
+    name: string | null;
     email: string;
   };
 }

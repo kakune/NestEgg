@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -37,14 +36,16 @@ jest.mock('lucide-react', () => ({
 const mockApiHelpers = apiHelpers as jest.Mocked<typeof apiHelpers>;
 
 // Helper function to create mock AxiosResponse
-const createMockAxiosResponse = (data: any): AxiosResponse => ({
+const createMockAxiosResponse = <T,>(data: T): AxiosResponse<T> => ({
   data,
   status: 200,
   statusText: 'OK',
-  headers: {},
+  headers: {} as Record<string, string>,
   config: {
-    headers: {},
-  } as any,
+    headers: {} as Record<string, string>,
+    method: 'GET',
+    url: '/api/test',
+  } as AxiosResponse<T>['config'],
 });
 
 const mockSettlement: Settlement = {
@@ -66,6 +67,7 @@ const mockSettlement: Settlement = {
         id: 'user-2',
         name: 'Jane Doe',
         email: 'jane@example.com',
+        username: 'jane',
         role: UserRole.MEMBER,
         householdId: 'household-1',
         isActive: true,
@@ -76,6 +78,7 @@ const mockSettlement: Settlement = {
         id: 'user-1',
         name: 'John Doe',
         email: 'john@example.com',
+        username: 'john',
         role: UserRole.ADMIN,
         householdId: 'household-1',
         isActive: true,
@@ -92,6 +95,7 @@ const mockSettlement: Settlement = {
         id: 'user-1',
         name: 'John Doe',
         email: 'john@example.com',
+        username: 'john',
         role: UserRole.ADMIN,
         householdId: 'household-1',
         isActive: true,
@@ -109,6 +113,7 @@ const mockSettlement: Settlement = {
         id: 'user-2',
         name: 'Jane Doe',
         email: 'jane@example.com',
+        username: 'jane',
         role: UserRole.MEMBER,
         householdId: 'household-1',
         isActive: true,

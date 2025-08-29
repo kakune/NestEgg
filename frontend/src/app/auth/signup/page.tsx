@@ -13,6 +13,7 @@ import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 interface FormData {
   name: string;
   email: string;
+  username: string;
   password: string;
   confirmPassword: string;
 }
@@ -20,6 +21,7 @@ interface FormData {
 interface FormErrors {
   name?: string;
   email?: string;
+  username?: string;
   password?: string;
   confirmPassword?: string;
   submit?: string;
@@ -29,6 +31,7 @@ export default function SignUpPage() {
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
+    username: '',
     password: '',
     confirmPassword: '',
   });
@@ -55,6 +58,15 @@ export default function SignUpPage() {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Username validation
+    if (!formData.username) {
+      newErrors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Username must be at least 3 characters';
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      newErrors.username = 'Username can only contain letters, numbers, hyphens, and underscores';
     }
 
     // Password validation
@@ -105,7 +117,7 @@ export default function SignUpPage() {
     setErrors({});
 
     try {
-      await register(formData.email, formData.password, formData.name);
+      await register(formData.email, formData.username, formData.password, formData.name);
       router.push('/');
     } catch (error) {
       console.error('Registration error:', error);
@@ -115,7 +127,7 @@ export default function SignUpPage() {
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { status: number; data?: { message?: string } } };
         if (axiosError.response?.status === 409) {
-          errorMessage = 'An account with this email already exists. Please sign in instead.';
+          errorMessage = 'An account with this email or username already exists. Please sign in instead.';
         } else if (axiosError.response?.data?.message) {
           errorMessage = axiosError.response.data.message;
         }
@@ -205,6 +217,28 @@ export default function SignUpPage() {
                 {errors.email && (
                   <p id="email-error" className="text-sm text-red-600" role="alert">
                     {errors.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={formData.username}
+                  onChange={handleInputChange('username')}
+                  className={errors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}
+                  placeholder="Enter your username"
+                  aria-invalid={!!errors.username}
+                  aria-describedby={errors.username ? 'username-error' : undefined}
+                />
+                {errors.username && (
+                  <p id="username-error" className="text-sm text-red-600" role="alert">
+                    {errors.username}
                   </p>
                 )}
               </div>

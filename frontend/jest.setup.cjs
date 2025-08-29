@@ -61,17 +61,55 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Mock localStorage
-const localStorageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
+// Mock localStorage that actually stores values
+const localStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: jest.fn((key) => store[key] || null),
+    setItem: jest.fn((key, value) => {
+      store[key] = value.toString();
+    }),
+    removeItem: jest.fn((key) => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    }),
+  };
+})();
 
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
+  writable: true,
 });
+
+// Also set global localStorage for compatibility
+global.localStorage = localStorageMock;
+
+// Mock sessionStorage that actually stores values
+const sessionStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: jest.fn((key) => store[key] || null),
+    setItem: jest.fn((key, value) => {
+      store[key] = value.toString();
+    }),
+    removeItem: jest.fn((key) => {
+      delete store[key];
+    }),
+    clear: jest.fn(() => {
+      store = {};
+    }),
+  };
+})();
+
+Object.defineProperty(window, 'sessionStorage', {
+  value: sessionStorageMock,
+  writable: true,
+});
+
+// Also set global sessionStorage for compatibility
+global.sessionStorage = sessionStorageMock;
 
 // Mock window.location methods only if they don't exist
 if (!window.location.assign || typeof window.location.assign !== 'function') {
@@ -113,8 +151,19 @@ Object.defineProperty(window, 'ResizeObserver', {
 // Reset all mocks before each test
 beforeEach(() => {
   jest.clearAllMocks();
+  
+  // Clear storage mock call histories
   localStorageMock.getItem.mockClear();
   localStorageMock.setItem.mockClear();
   localStorageMock.removeItem.mockClear();
   localStorageMock.clear.mockClear();
+  
+  sessionStorageMock.getItem.mockClear();
+  sessionStorageMock.setItem.mockClear();
+  sessionStorageMock.removeItem.mockClear();
+  sessionStorageMock.clear.mockClear();
+  
+  // Clear actual stored data
+  localStorageMock.clear();
+  sessionStorageMock.clear();
 });

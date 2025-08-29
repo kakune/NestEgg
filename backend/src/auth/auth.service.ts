@@ -19,6 +19,7 @@ export interface JwtPayload {
   sub: string; // userId
   email: string;
   username: string;
+  name: string | null;
   householdId: string;
   role: UserRole;
   sessionId?: string;
@@ -119,6 +120,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       username: user.username,
+      name: user.name,
       householdId: user.householdId,
       role: user.role,
       sessionId: session.id,
@@ -185,7 +187,7 @@ export class AuthService {
       data: {
         email: registerDto.email.toLowerCase(),
         username: registerDto.username.toLowerCase(),
-        name: registerDto.name,
+        name: registerDto.name ?? null,
         passwordHash,
         householdId,
         role:
@@ -226,6 +228,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       username: user.username,
+      name: user.name,
       householdId: user.householdId,
       role: user.role,
       sessionId: session.id,
@@ -258,6 +261,7 @@ export class AuthService {
         id: true,
         email: true,
         username: true,
+        name: true,
         householdId: true,
         role: true,
       },
@@ -265,6 +269,7 @@ export class AuthService {
       id: string;
       email: string;
       username: string;
+      name: string | null;
       householdId: string;
       role: UserRole;
     } | null;
@@ -293,6 +298,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       username: user.username,
+      name: user.name,
       householdId: user.householdId,
       role: user.role,
       tokenType: 'pat',

@@ -38,6 +38,7 @@ describe('SignUpPage', () => {
     mockUseAuth.mockReturnValue({
       register: mockRegister,
       isLoading: false,
+      isInitialized: true,
       isAuthenticated: false,
       user: null,
       login: jest.fn(),
@@ -55,6 +56,7 @@ describe('SignUpPage', () => {
       expect(screen.getByText('Set up your household financial settlement system')).toBeInTheDocument();
       
       expect(screen.getByLabelText('Full name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Username')).toBeInTheDocument();
       expect(screen.getByLabelText('Email address')).toBeInTheDocument();
       expect(screen.getByLabelText('Password')).toBeInTheDocument();
       expect(screen.getByLabelText('Confirm password')).toBeInTheDocument();
@@ -173,19 +175,21 @@ describe('SignUpPage', () => {
       render(<SignUpPage />);
 
       const nameInput = screen.getByLabelText('Full name');
+      const usernameInput = screen.getByLabelText('Username');
       const emailInput = screen.getByLabelText('Email address');
       const passwordInput = screen.getByLabelText('Password');
       const confirmPasswordInput = screen.getByLabelText('Confirm password');
       const submitButton = screen.getByRole('button', { name: 'Create account' });
 
       await user.type(nameInput, 'John Doe');
+      await user.type(usernameInput, 'johndoe');
       await user.type(emailInput, 'john@example.com');
-      await user.type(passwordInput, 'password123');
-      await user.type(confirmPasswordInput, 'password123');
+      await user.type(passwordInput, 'Password123@');
+      await user.type(confirmPasswordInput, 'Password123@');
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockRegister).toHaveBeenCalledWith('john@example.com', 'password123', 'John Doe');
+        expect(mockRegister).toHaveBeenCalledWith('john@example.com', 'johndoe', 'Password123@', 'John Doe');
       });
     });
 
@@ -200,15 +204,17 @@ describe('SignUpPage', () => {
       render(<SignUpPage />);
 
       const nameInput = screen.getByLabelText('Full name');
+      const usernameInput = screen.getByLabelText('Username');
       const emailInput = screen.getByLabelText('Email address');
       const passwordInput = screen.getByLabelText('Password');
       const confirmPasswordInput = screen.getByLabelText('Confirm password');
       const submitButton = screen.getByRole('button', { name: 'Create account' });
 
       await user.type(nameInput, 'John Doe');
+      await user.type(usernameInput, 'johndoe');
       await user.type(emailInput, 'john@example.com');
-      await user.type(passwordInput, 'password123');
-      await user.type(confirmPasswordInput, 'password123');
+      await user.type(passwordInput, 'Password123@');
+      await user.type(confirmPasswordInput, 'Password123@');
       await user.click(submitButton);
 
       // Should show loading state
@@ -230,15 +236,17 @@ describe('SignUpPage', () => {
       render(<SignUpPage />);
 
       const nameInput = screen.getByLabelText('Full name');
+      const usernameInput = screen.getByLabelText('Username');
       const emailInput = screen.getByLabelText('Email address');
       const passwordInput = screen.getByLabelText('Password');
       const confirmPasswordInput = screen.getByLabelText('Confirm password');
       const submitButton = screen.getByRole('button', { name: 'Create account' });
 
       await user.type(nameInput, 'John Doe');
+      await user.type(usernameInput, 'johndoe');
       await user.type(emailInput, 'john@example.com');
-      await user.type(passwordInput, 'password123');
-      await user.type(confirmPasswordInput, 'password123');
+      await user.type(passwordInput, 'Password123@');
+      await user.type(confirmPasswordInput, 'Password123@');
       await user.click(submitButton);
 
       await waitFor(() => {
@@ -276,7 +284,7 @@ describe('SignUpPage', () => {
       await fillValidForm(user);
 
       await waitFor(() => {
-        expect(screen.getByText('An account with this email already exists. Please sign in instead.')).toBeInTheDocument();
+        expect(screen.getByText('An account with this email or username already exists. Please sign in instead.')).toBeInTheDocument();
       });
     });
 
@@ -350,15 +358,17 @@ describe('SignUpPage', () => {
   // Helper function to fill out the form with valid data
   async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
     const nameInput = screen.getByLabelText('Full name');
+    const usernameInput = screen.getByLabelText('Username');
     const emailInput = screen.getByLabelText('Email address');
     const passwordInput = screen.getByLabelText('Password');
     const confirmPasswordInput = screen.getByLabelText('Confirm password');
     const submitButton = screen.getByRole('button', { name: 'Create account' });
 
     await user.type(nameInput, 'John Doe');
+    await user.type(usernameInput, 'johndoe');
     await user.type(emailInput, 'john@example.com');
-    await user.type(passwordInput, 'password123');
-    await user.type(confirmPasswordInput, 'password123');
+    await user.type(passwordInput, 'Password123@');
+    await user.type(confirmPasswordInput, 'Password123@');
     await user.click(submitButton);
   }
 });

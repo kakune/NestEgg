@@ -28,11 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       select: {
         id: true,
-        email: true,
-        username: true,
-        name: true,
-        role: true,
-        householdId: true,
         deletedAt: true,
       },
     });
@@ -74,7 +69,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: payload.sub,
       email: payload.email,
       username: payload.username,
-      name: user.name,
+      name: payload.name,
       householdId: payload.householdId,
       role: payload.role,
       sessionId: payload.sessionId,

@@ -44,6 +44,7 @@ describe('SignInPage', () => {
     mockUseAuth.mockReturnValue({
       login: mockLogin,
       isLoading: false,
+      isInitialized: true,
       isAuthenticated: false,
       user: null,
       register: jest.fn(),
@@ -58,9 +59,9 @@ describe('SignInPage', () => {
 
       expect(screen.getByRole('heading', { name: 'NestEgg' })).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: 'Sign in to your account' })).toBeInTheDocument();
-      expect(screen.getByText('Enter your email and password to access your household')).toBeInTheDocument();
+      expect(screen.getByText('Enter your username and password to access your household')).toBeInTheDocument();
       
-      expect(screen.getByLabelText('Email address')).toBeInTheDocument();
+      expect(screen.getByLabelText('Username')).toBeInTheDocument();
       expect(screen.getByLabelText('Password')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
       
@@ -74,8 +75,8 @@ describe('SignInPage', () => {
       render(<SignInPage />);
 
       expect(screen.getByText('Development Mode')).toBeInTheDocument();
-      expect(screen.getByText('Email: test@example.com')).toBeInTheDocument();
-      expect(screen.getByText('Password: password')).toBeInTheDocument();
+      expect(screen.getByText('Username: testuser')).toBeInTheDocument();
+      expect(screen.getByText('Password: Password123@')).toBeInTheDocument();
 
       Object.defineProperty(process.env, 'NODE_ENV', { value: originalEnv, writable: true });
     });
@@ -101,25 +102,25 @@ describe('SignInPage', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Email is required')).toBeInTheDocument();
+        expect(screen.getByText('Username is required')).toBeInTheDocument();
         expect(screen.getByText('Password is required')).toBeInTheDocument();
       });
 
       expect(mockLogin).not.toHaveBeenCalled();
     });
 
-    it('should show validation error for invalid email', async () => {
+    it('should show validation error for invalid username', async () => {
       const user = userEvent.setup();
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'invalid-email');
+      await user.type(usernameInput, 'invalid@email');
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument();
+        expect(screen.getByText('Username can only contain letters, numbers, hyphens, and underscores')).toBeInTheDocument();
       });
     });
 
@@ -134,7 +135,7 @@ describe('SignInPage', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Password must be at least 6 characters')).toBeInTheDocument();
+        expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument();
       });
     });
 
@@ -142,21 +143,21 @@ describe('SignInPage', () => {
       const user = userEvent.setup();
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
       // First, trigger validation error
       await user.click(submitButton);
       
       await waitFor(() => {
-        expect(screen.getByText('Email is required')).toBeInTheDocument();
+        expect(screen.getByText('Username is required')).toBeInTheDocument();
       });
 
       // Then start typing to clear error
-      await user.type(emailInput, 'test');
+      await user.type(usernameInput, 'test');
 
       await waitFor(() => {
-        expect(screen.queryByText('Email is required')).not.toBeInTheDocument();
+        expect(screen.queryByText('Username is required')).not.toBeInTheDocument();
       });
     });
   });
@@ -191,16 +192,16 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+        expect(mockLogin).toHaveBeenCalledWith('testuser', 'password123');
       });
     });
 
@@ -214,11 +215,11 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
@@ -240,11 +241,11 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
@@ -262,11 +263,11 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
@@ -283,11 +284,11 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
@@ -308,16 +309,16 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'wrongpassword');
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid email or password. Please check your credentials and try again.')).toBeInTheDocument();
+        expect(screen.getByText('Invalid username or password. Please check your credentials and try again.')).toBeInTheDocument();
       });
     });
 
@@ -333,11 +334,11 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
@@ -351,13 +352,13 @@ describe('SignInPage', () => {
     it('should have proper form labels and associations', () => {
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
 
-      expect(emailInput).toHaveAttribute('id', 'email');
+      expect(usernameInput).toHaveAttribute('id', 'username');
       expect(passwordInput).toHaveAttribute('id', 'password');
-      expect(emailInput).toHaveAttribute('type', 'email');
-      expect(emailInput).toHaveAttribute('autoComplete', 'email');
+      expect(usernameInput).toHaveAttribute('type', 'text');
+      expect(usernameInput).toHaveAttribute('autoComplete', 'username');
       expect(passwordInput).toHaveAttribute('autoComplete', 'current-password');
     });
 
@@ -365,16 +366,16 @@ describe('SignInPage', () => {
       const user = userEvent.setup();
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
       // Trigger validation
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Email is required')).toBeInTheDocument();
-        expect(emailInput).toHaveAttribute('aria-invalid', 'true');
-        expect(emailInput).toHaveAttribute('aria-describedby', 'email-error');
+        expect(screen.getByText('Username is required')).toBeInTheDocument();
+        expect(usernameInput).toHaveAttribute('aria-invalid', 'true');
+        expect(usernameInput).toHaveAttribute('aria-describedby', 'username-error');
       });
     });
 
@@ -386,7 +387,7 @@ describe('SignInPage', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        const errorMessage = screen.getByText('Email is required');
+        const errorMessage = screen.getByText('Username is required');
         expect(errorMessage).toHaveAttribute('role', 'alert');
       });
     });
@@ -397,11 +398,11 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
       const submitButton = screen.getByRole('button', { name: 'Sign in' });
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.click(submitButton);
 
@@ -428,15 +429,15 @@ describe('SignInPage', () => {
 
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
       const passwordInput = screen.getByLabelText('Password');
 
-      await user.type(emailInput, 'test@example.com');
+      await user.type(usernameInput, 'testuser');
       await user.type(passwordInput, 'password123');
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+        expect(mockLogin).toHaveBeenCalledWith('testuser', 'password123');
       });
     });
 
@@ -444,14 +445,16 @@ describe('SignInPage', () => {
       const user = userEvent.setup();
       render(<SignInPage />);
 
-      const emailInput = screen.getByLabelText('Email address');
+      const usernameInput = screen.getByLabelText('Username');
+      const passwordInput = screen.getByLabelText('Password');
       
-      await user.type(emailInput, 'invalid-email');
+      await user.type(usernameInput, 'invalid@email');
+      await user.type(passwordInput, 'validpassword123');
       await user.keyboard('{Enter}');
 
       // Should show validation errors but not call login
       await waitFor(() => {
-        expect(screen.getByText('Please enter a valid email address')).toBeInTheDocument();
+        expect(screen.getByText('Username can only contain letters, numbers, hyphens, and underscores')).toBeInTheDocument();
       });
       
       expect(mockLogin).not.toHaveBeenCalled();

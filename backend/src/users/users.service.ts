@@ -19,13 +19,13 @@ export type PublicUser = Omit<User, 'passwordHash'>;
 export interface CreateUserDto {
   email: string;
   username: string;
-  name: string;
+  name: string | null;
   role?: UserRole;
   householdId: string;
 }
 
 export interface UpdateUserDto {
-  name?: string;
+  name?: string | null;
   role?: UserRole;
   email?: string;
   username?: string;

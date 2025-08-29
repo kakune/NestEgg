@@ -31,6 +31,7 @@ const mockUsers: User[] = [
   {
     id: '1',
     email: 'john@example.com',
+    username: 'john',
     name: 'John Doe',
     role: UserRole.MEMBER,
     householdId: '1',
@@ -41,6 +42,7 @@ const mockUsers: User[] = [
   {
     id: '2',
     email: 'jane@example.com',
+    username: 'jane',
     name: 'Jane Smith',
     role: UserRole.ADMIN,
     householdId: '1',

@@ -94,19 +94,42 @@ const mockTransactions: Array<{
 export const handlers = [
   // Authentication endpoints
   http.post('http://localhost:3000/api/v1/auth/login', async ({ request }) => {
-    console.log('MSW: Login handler called');
-    const { email, password } = await request.json() as { email: string; password: string };
+    const body = await request.json() as { username?: string; email?: string; password: string };
     
-    console.log('MSW: Login attempt with', { email, password });
-    if (email === 'test@example.com' && password === 'password') {
+    console.log('MSW: Login request received with body:', body);
+    
+    // Support both username and email login
+    const identifier = body.username || body.email;
+    
+    console.log('MSW: Identifier:', identifier, 'Password:', body.password);
+    
+    if ((identifier === 'testuser' || identifier === 'test@example.com') && body.password === 'password') {
       const response = {
-        accessToken: 'mock-access-token',
-        user: mockUser,
+        data: {
+          accessToken: 'mock-access-token',
+          user: {
+            id: '1',
+            email: 'test@example.com',
+            name: 'Test User',
+            username: 'testuser',
+          },
+        }
       };
-      console.log('MSW: Returning login response', response);
-      return HttpResponse.json(response);
+      console.log('MSW: Returning success response:', response);
+      const jsonString = JSON.stringify(response);
+      console.log('MSW: JSON string:', jsonString);
+      const httpResponse = new HttpResponse(jsonString, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': jsonString.length.toString(),
+        },
+      });
+      console.log('MSW: Created HttpResponse:', httpResponse);
+      return httpResponse;
     }
     
+    console.log('MSW: Credentials do not match, returning 401');
     return HttpResponse.json(
       { error: 'Invalid credentials' },
       { status: 401 }
@@ -115,19 +138,22 @@ export const handlers = [
 
   http.post('http://localhost:3000/api/v1/auth/register', async ({ request }) => {
     const body = await request.json() as {
+      username: string;
       email: string;
       password: string;
       name: string;
-      householdName: string;
     };
     
     return HttpResponse.json({
-      accessToken: 'mock-access-token',
-      user: {
-        ...mockUser,
-        email: body.email,
-        name: body.name,
-      },
+      data: {
+        accessToken: 'mock-access-token',
+        user: {
+          ...mockUser,
+          username: body.username,
+          email: body.email,
+          name: body.name,
+        },
+      }
     });
   }),
 
@@ -139,7 +165,14 @@ export const handlers = [
     const authHeader = request.headers.get('authorization');
     
     if (authHeader && authHeader.includes('Bearer')) {
-      return HttpResponse.json(mockUser);
+      return HttpResponse.json({
+        data: {
+          user: {
+            ...mockUser,
+            username: 'testuser',
+          }
+        }
+      });
     }
     
     return HttpResponse.json(

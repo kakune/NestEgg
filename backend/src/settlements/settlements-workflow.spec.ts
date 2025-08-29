@@ -44,8 +44,8 @@ interface MockTransactionWorkflow {
   payerUserId: string;
   shouldPayUserId: string;
   deletedAt: Date | null;
-  payerUser: { id: string; name: string };
-  shouldPayUser: { id: string; name: string };
+  payerUser: { id: string; name: string | null };
+  shouldPayUser: { id: string; name: string | null };
 }
 
 interface MockIncomeWorkflow {
@@ -56,7 +56,7 @@ interface MockIncomeWorkflow {
   month: Date;
   allocatableYen: number;
   deletedAt: Date | null;
-  user: { id: string; name: string };
+  user: { id: string; name: string | null };
 }
 
 interface MockPolicyWorkflow {
