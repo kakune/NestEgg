@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { BackendTransaction } from '@/types/transaction';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5173/api/v1';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -40,11 +41,20 @@ api.interceptors.response.use(
 // API helper functions
 export const apiHelpers = {
   // Auth
-  login: (email: string, password: string) =>
-    api.post('/auth/login', { email, password }),
+  login: (username: string, password: string) =>
+    api.post('/auth/login', { username, password }),
   
-  register: (data: { email: string; password: string; name: string; householdName: string }) =>
-    api.post('/auth/register', data),
+  register: (data: { email: string; password: string; name: string; username?: string; householdName?: string }) => {
+    // Generate username from email if not provided
+    const username = data.username || data.email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '');
+    
+    return api.post('/auth/register', {
+      email: data.email,
+      password: data.password,
+      name: data.name,
+      username,
+    });
+  },
   
   logout: () => api.post('/auth/logout'),
   
@@ -62,10 +72,33 @@ export const apiHelpers = {
   deleteUser: (id: string) => api.delete(`/users/${id}`),
   
   // Transactions
-  getTransactions: (params?: Record<string, unknown>) =>
-    api.get('/transactions', { params }),
+  getTransactions: async (params?: Record<string, unknown>) => {
+    const response = await api.get('/transactions', { params });
+    
+    // Transform backend response to frontend format
+    if (response.data?.data) {
+      response.data.data = response.data.data.map((transaction: BackendTransaction) => ({
+        id: transaction.id,
+        date: transaction.occurredOn,
+        amount: Math.abs(transaction.amountYen), // Frontend shows positive amounts
+        type: transaction.type,
+        categoryId: transaction.categoryId,
+        category: transaction.category,
+        actorId: transaction.payerActorId,
+        actor: transaction.payerActor,
+        notes: transaction.note,
+        tags: transaction.tags || [],
+        shouldPay: transaction.shouldPay === 'USER',
+        householdId: transaction.householdId,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      }));
+    }
+    
+    return response;
+  },
   
-  createTransaction: (data: {
+  createTransaction: async (data: {
     date: string;
     amount: number;
     type: 'INCOME' | 'EXPENSE';
@@ -74,9 +107,47 @@ export const apiHelpers = {
     notes?: string;
     tags?: string[];
     shouldPay?: boolean;
-  }) => api.post('/transactions', data),
+  }) => {
+    // Transform camelCase frontend data to snake_case backend format
+    // Backend expects negative amounts for expenses, positive for income
+    const transformedData = {
+      type: data.type,
+      amount_yen: data.type === 'EXPENSE' ? -Math.abs(data.amount) : Math.abs(data.amount),
+      occurred_on: data.date,
+      category_id: data.categoryId,
+      payer_actor_id: data.actorId,
+      should_pay: data.shouldPay ? 'USER' : 'HOUSEHOLD',
+      note: data.notes,
+      tags: data.tags || [],
+    };
+    
+    const response = await api.post('/transactions', transformedData);
+    
+    // Transform response back to frontend format
+    if (response.data?.data) {
+      const transaction = response.data.data;
+      response.data.data = {
+        id: transaction.id,
+        date: transaction.occurredOn,
+        amount: Math.abs(transaction.amountYen),
+        type: transaction.type,
+        categoryId: transaction.categoryId,
+        category: transaction.category,
+        actorId: transaction.payerActorId,
+        actor: transaction.payerActor,
+        notes: transaction.note,
+        tags: transaction.tags || [],
+        shouldPay: transaction.shouldPay === 'USER',
+        householdId: transaction.householdId,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      };
+    }
+    
+    return response;
+  },
   
-  updateTransaction: (id: string, data: Partial<{
+  updateTransaction: async (id: string, data: Partial<{
     date: string;
     amount: number;
     type: 'INCOME' | 'EXPENSE';
@@ -85,7 +156,53 @@ export const apiHelpers = {
     notes?: string;
     tags?: string[];
     shouldPay?: boolean;
-  }>) => api.patch(`/transactions/${id}`, data),
+  }>) => {
+    // Transform camelCase frontend data to snake_case backend format
+    // Backend expects negative amounts for expenses, positive for income
+    const transformedData: Record<string, unknown> = {};
+    if (data.type !== undefined) transformedData.type = data.type;
+    if (data.amount !== undefined) {
+      // If type is provided, use it to determine sign, otherwise we'll let backend handle it
+      if (data.type !== undefined) {
+        transformedData.amount_yen = data.type === 'EXPENSE' ? -Math.abs(data.amount) : Math.abs(data.amount);
+      } else {
+        // When type is not provided, we need to preserve the sign intent from frontend
+        // Frontend always shows positive amounts, so for updates without type, assume EXPENSE if negative was intended
+        transformedData.amount_yen = data.amount;
+      }
+    }
+    if (data.date !== undefined) transformedData.occurred_on = data.date;
+    if (data.categoryId !== undefined) transformedData.category_id = data.categoryId;
+    if (data.actorId !== undefined) transformedData.payer_actor_id = data.actorId;
+    if (data.shouldPay !== undefined) transformedData.should_pay = data.shouldPay ? 'USER' : 'HOUSEHOLD';
+    if (data.notes !== undefined) transformedData.note = data.notes;
+    if (data.tags !== undefined) transformedData.tags = data.tags;
+    
+    const response = await api.patch(`/transactions/${id}`, transformedData);
+    
+    // Transform response back to frontend format
+    if (response.data?.data) {
+      const transaction = response.data.data;
+      response.data.data = {
+        id: transaction.id,
+        date: transaction.occurredOn,
+        amount: Math.abs(transaction.amountYen),
+        type: transaction.type,
+        categoryId: transaction.categoryId,
+        category: transaction.category,
+        actorId: transaction.payerActorId,
+        actor: transaction.payerActor,
+        notes: transaction.note,
+        tags: transaction.tags || [],
+        shouldPay: transaction.shouldPay === 'USER',
+        householdId: transaction.householdId,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      };
+    }
+    
+    return response;
+  },
   
   deleteTransaction: (id: string) => api.delete(`/transactions/${id}`),
   

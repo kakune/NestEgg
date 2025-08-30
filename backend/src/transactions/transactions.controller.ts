@@ -14,17 +14,16 @@ import {
 import {
   TransactionsService,
   TransactionFilters,
-  TransactionWithDetails,
+  TransformedTransaction,
+  TransformedTransactionWithDetails,
 } from './transactions.service';
-import type {
-  CreateTransactionDto,
-  UpdateTransactionDto,
-} from './transactions.service';
+import { CreateTransactionDto } from './dto/create-transaction.dto';
+import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../common/decorators/user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/auth-context.interface';
-import { Transaction, TransactionType } from '@prisma/client';
+import { TransactionType } from '@prisma/client';
 
 interface TransactionQueryParams {
   dateFrom?: string;
@@ -52,7 +51,7 @@ export class TransactionsController {
   async findAll(
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     return this.transactionsService.findAll(filters, user);
   }
@@ -71,7 +70,7 @@ export class TransactionsController {
     @Query('q') searchQuery: string,
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     filters.search = searchQuery;
     filters.limit = filters.limit || 50; // Default limit for search
@@ -86,7 +85,7 @@ export class TransactionsController {
     @Param('categoryId') categoryId: string,
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     filters.categoryIds = [categoryId];
 
@@ -98,7 +97,7 @@ export class TransactionsController {
     @Param('actorId') actorId: string,
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     filters.actorIds = [actorId];
 
@@ -110,7 +109,7 @@ export class TransactionsController {
     @Param('tag') tag: string,
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     filters.tags = [tag];
     filters.sortBy = 'occurredOn';
@@ -123,7 +122,7 @@ export class TransactionsController {
   async findRecent(
     @Query('limit') limit: string = '20',
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters: TransactionFilters = {
       limit: parseInt(limit),
       sortBy: 'occurredOn',
@@ -139,7 +138,7 @@ export class TransactionsController {
     @Param('to') to: string,
     @Query() query: TransactionQueryParams,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     const filters = this.buildFilters(query);
     filters.dateFrom = new Date(from);
     filters.dateTo = new Date(to);
@@ -153,7 +152,7 @@ export class TransactionsController {
   async findOne(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TransactionWithDetails> {
+  ): Promise<TransformedTransactionWithDetails> {
     return this.transactionsService.findOne(id, user);
   }
 
@@ -162,7 +161,7 @@ export class TransactionsController {
   async create(
     @Body() createTransactionDto: CreateTransactionDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Transaction> {
+  ): Promise<TransformedTransaction> {
     return this.transactionsService.create(createTransactionDto, user);
   }
 
@@ -187,7 +186,7 @@ export class TransactionsController {
     @Param('id') id: string,
     @Body() updateTransactionDto: UpdateTransactionDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<Transaction> {
+  ): Promise<TransformedTransaction> {
     return this.transactionsService.update(id, updateTransactionDto, user);
   }
 

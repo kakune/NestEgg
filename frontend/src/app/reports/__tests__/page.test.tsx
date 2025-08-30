@@ -41,9 +41,9 @@ jest.mock('@/components/ui/select', () => ({
     </div>
   ),
   SelectTrigger: ({ children }: { children: React.ReactNode }) => (
-    <div role="combobox" data-testid="select-trigger">{children}</div>
+    <div role="combobox" aria-expanded="false" aria-controls="select-content" data-testid="select-trigger">{children}</div>
   ),
-  SelectValue: ({ placeholder }: { placeholder?: string }) => (
+  SelectValue: () => (
     <span>{format(new Date(), 'MMMM yyyy')}</span>
   ),
   SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -65,11 +65,10 @@ jest.mock('@/components/ui/card', () => ({
 
 // Mock Button component
 jest.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, disabled, variant, ...props }: { 
+  Button: ({ children, onClick, disabled, ...props }: { 
     children: React.ReactNode; 
     onClick?: () => void; 
     disabled?: boolean;
-    variant?: string;
     [key: string]: unknown;
   }) => (
     <button onClick={onClick} disabled={disabled} {...props}>

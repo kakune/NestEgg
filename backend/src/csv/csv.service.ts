@@ -378,7 +378,7 @@ export class CsvService {
       notes: String(transaction.note || ''),
       shouldPay: transaction.shouldPay,
       createdAt: this.formatDate(
-        transaction.createdAt,
+        new Date(transaction.createdAt),
         String(options.dateFormat),
       ),
     }));

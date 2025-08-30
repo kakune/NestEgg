@@ -122,4 +122,34 @@ export interface SettlementFinalizeRequest {
   notes?: string;
 }
 
+// Backend transaction format (snake_case fields as received from API)
+export interface BackendTransaction {
+  id: string;
+  occurredOn: string;
+  amountYen: number;
+  type: TransactionType;
+  categoryId: string;
+  category?: Category;
+  payerActorId: string;
+  payerActor?: Actor;
+  note?: string;
+  tags?: string[];
+  shouldPay: 'USER' | 'HOUSEHOLD';
+  householdId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Backend transaction request format (snake_case fields as sent to API)
+export interface BackendTransactionRequest {
+  type: TransactionType;
+  amount_yen: number;
+  occurred_on: string;
+  category_id: string;
+  payer_actor_id: string;
+  should_pay: 'USER' | 'HOUSEHOLD';
+  note?: string;
+  tags?: string[];
+}
+
 import { User } from './user';

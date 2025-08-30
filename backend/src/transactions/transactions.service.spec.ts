@@ -46,7 +46,7 @@ describe('TransactionsService (Phase 3.1)', () => {
     category_id: 'category-1',
     payerUserId: 'user-1',
     shouldPayUserId: 'user-1',
-    amountYen: BigInt(-5000),
+    amountYen: -5000, // Transformed from BigInt to number
     type: TransactionType.EXPENSE,
     note: 'Test Expense',
     occurred_on: '2024-01-15',
@@ -54,8 +54,8 @@ describe('TransactionsService (Phase 3.1)', () => {
     notes: 'Dinner with friends',
     should_pay: 'USER',
     source_hash: 'source-hash-1',
-    createdAt: new Date('2024-01-15T10:00:00Z'),
-    updatedAt: new Date('2024-01-15T10:00:00Z'),
+    createdAt: '2024-01-15T10:00:00.000Z', // Transformed from Date to ISO string
+    updatedAt: '2024-01-15T10:00:00.000Z', // Transformed from Date to ISO string
     deletedAt: null,
   };
 
@@ -716,7 +716,7 @@ describe('TransactionsService (Phase 3.1)', () => {
         );
 
         expect(result).toMatchObject({
-          amountYen: BigInt(-5000),
+          amountYen: -5000, // Expects transformed number value
           type: TransactionType.EXPENSE,
           note: 'Dinner with friends',
           tags: ['food', 'restaurant'],

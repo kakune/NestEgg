@@ -10,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import { UserRole } from '@prisma/client';
+import { UserRole, TransactionType, ActorKind } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CreatePersonalAccessTokenDto } from './dto/create-personal-access-token.dto';
@@ -212,6 +212,15 @@ export class AuthService {
       role: UserRole;
     };
 
+    // If this is a new household (user is admin), seed default data
+    if (user.role === UserRole.admin) {
+      await this.seedDefaultHouseholdData(
+        user.householdId,
+        user.id,
+        user.username,
+      );
+    }
+
     // Create session
     const session = await this.prismaService.prisma.session.create({
       data: {
@@ -346,6 +355,64 @@ export class AuthService {
 
   async comparePasswords(plaintext: string, hash: string): Promise<boolean> {
     return bcrypt.compare(plaintext, hash);
+  }
+
+  private async seedDefaultHouseholdData(
+    householdId: string,
+    userId: string,
+    username: string,
+  ): Promise<void> {
+    // Create default categories
+    const defaultCategories = [
+      // Income categories
+      { name: 'Salary', type: TransactionType.INCOME },
+      { name: 'Freelance', type: TransactionType.INCOME },
+      { name: 'Investment', type: TransactionType.INCOME },
+      { name: 'Other Income', type: TransactionType.INCOME },
+
+      // Expense categories
+      { name: 'Food & Dining', type: TransactionType.EXPENSE },
+      { name: 'Transportation', type: TransactionType.EXPENSE },
+      { name: 'Shopping', type: TransactionType.EXPENSE },
+      { name: 'Entertainment', type: TransactionType.EXPENSE },
+      { name: 'Bills & Utilities', type: TransactionType.EXPENSE },
+      { name: 'Healthcare', type: TransactionType.EXPENSE },
+      { name: 'Other Expenses', type: TransactionType.EXPENSE },
+    ];
+
+    // Create categories
+    await Promise.all(
+      defaultCategories.map((category) =>
+        this.prismaService.prisma.category.create({
+          data: {
+            ...category,
+            householdId,
+          },
+        }),
+      ),
+    );
+
+    // Create default actor for the user
+    await this.prismaService.prisma.actor.create({
+      data: {
+        name: username,
+        kind: ActorKind.USER,
+        userId: userId,
+        householdId,
+        isActive: true,
+      },
+    });
+
+    // Create a default "Cash" instrument actor
+    await this.prismaService.prisma.actor.create({
+      data: {
+        name: 'Cash',
+        kind: ActorKind.INSTRUMENT,
+        userId: null, // Instrument actors don't belong to specific users
+        householdId,
+        isActive: true,
+      },
+    });
   }
 
   private getTokenExpirationTime(): number {

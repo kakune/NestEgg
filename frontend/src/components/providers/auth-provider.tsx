@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api-client';
+import { api, apiHelpers } from '@/lib/api-client';
 import { User } from '@/types/user';
 
 // Enhanced storage utility with fallbacks
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUser]); // Include fetchUser in dependencies since it's used in the effect
 
   const login = async (username: string, password: string) => {
-    const response = await api.post('/auth/login', { username, password });
+    const response = await apiHelpers.login(username, password);
     const responseData = response.data.data || response.data;
     const { accessToken, user } = responseData;
     
@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (email: string, username: string, password: string, name: string) => {
-    const response = await api.post('/auth/register', { 
+    const response = await apiHelpers.register({ 
       email,
       username, 
       password, 

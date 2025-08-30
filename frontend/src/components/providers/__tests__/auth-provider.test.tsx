@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderWithProviders, screen, waitFor, userEvent } from '@/test-utils';
 import { AuthProvider, useAuth } from '../auth-provider';
-import { api } from '@/lib/api-client';
+import { api, apiHelpers } from '@/lib/api-client';
 import { UserRole } from '@/types/user';
 
 // Test component that uses the auth context
@@ -87,10 +87,17 @@ jest.mock('@/lib/api-client', () => ({
       },
     },
   },
+  apiHelpers: {
+    login: jest.fn(),
+    register: jest.fn(),
+    logout: jest.fn(),
+    getMe: jest.fn(),
+  },
 }));
 
 describe('AuthProvider', () => {
   const mockedApi = api as jest.Mocked<typeof api>;
+  const mockedApiHelpers = apiHelpers as jest.Mocked<typeof apiHelpers>;
 
   beforeEach(() => {
     // Completely reset API mocks to ensure clean state
@@ -164,6 +171,12 @@ describe('AuthProvider', () => {
     mockedApi.post.mockReset();
     mockedApi.defaults.headers.common = {};
     
+    // Reset apiHelpers mocks
+    mockedApiHelpers.login.mockReset();
+    mockedApiHelpers.register.mockReset();
+    mockedApiHelpers.logout.mockReset();
+    mockedApiHelpers.getMe.mockReset();
+    
     // Clear router mocks
     mockPush.mockReset();
   });
@@ -225,7 +238,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     renderWithProviders(
@@ -248,7 +266,7 @@ describe('AuthProvider', () => {
 
   it('should handle successful login', async () => {
     // Mock successful login response
-    mockedApi.post.mockResolvedValueOnce({
+    mockedApiHelpers.login.mockResolvedValueOnce({
       data: {
         data: {
           accessToken: 'mock-access-token',
@@ -268,7 +286,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     renderWithProviders(
@@ -294,7 +317,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('authenticated')).toHaveTextContent('Authenticated');
     expect(localStorage.getItem('accessToken')).toBe('mock-access-token');
     expect(mockPush).not.toHaveBeenCalled();
-    expect(mockedApi.post).toHaveBeenCalledWith('/auth/login', { username: 'testuser', password: 'password' });
+    expect(mockedApiHelpers.login).toHaveBeenCalledWith('testuser', 'password');
   });
 
   it.skip('should handle failed login', async () => {
@@ -315,7 +338,7 @@ describe('AuthProvider', () => {
     });
 
     // Mock failed login response  
-    mockedApi.post.mockRejectedValueOnce(
+    mockedApiHelpers.login.mockRejectedValueOnce(
       new Error('Login failed')
     );
 
@@ -327,7 +350,7 @@ describe('AuthProvider', () => {
     await user.click(loginButton);
 
     // Verify the API was called with correct parameters
-    expect(mockedApi.post).toHaveBeenCalledWith('/auth/login', { username: 'testuser', password: 'password' });
+    expect(mockedApiHelpers.login).toHaveBeenCalledWith('testuser', 'password');
     
     // Verify user state remains unauthenticated
     expect(screen.getByTestId('user')).toHaveTextContent('No user');
@@ -338,7 +361,7 @@ describe('AuthProvider', () => {
 
   it('should handle successful registration', async () => {
     // Mock successful registration response
-    mockedApi.post.mockResolvedValueOnce({
+    mockedApiHelpers.register.mockResolvedValueOnce({
       data: {
         data: {
           accessToken: 'mock-access-token',
@@ -358,7 +381,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     renderWithProviders(
@@ -384,7 +412,7 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('authenticated')).toHaveTextContent('Authenticated');
     expect(localStorage.getItem('accessToken')).toBe('mock-access-token');
     expect(mockPush).not.toHaveBeenCalled();
-    expect(mockedApi.post).toHaveBeenCalledWith('/auth/register', { 
+    expect(mockedApiHelpers.register).toHaveBeenCalledWith({ 
       email: 'test@example.com', 
       username: 'testuser', 
       password: 'password', 
@@ -416,7 +444,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     // Mock successful logout response
@@ -425,7 +458,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     renderWithProviders(
@@ -478,7 +516,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     });
     
     // Mock logout failure
@@ -535,7 +578,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     });
     
     // Mock successful refresh call - second call  
@@ -558,7 +606,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     });
 
     renderWithProviders(
@@ -691,7 +744,12 @@ describe('AuthProvider', () => {
         status: 200,
         statusText: 'OK',
         headers: {},
-        config: {} as unknown,
+        config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
       } as const);
 
     renderWithProviders(
@@ -737,7 +795,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     const { unmount } = renderWithProviders(
@@ -781,7 +844,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     const { unmount: unmount2 } = renderWithProviders(
@@ -824,7 +892,12 @@ describe('AuthProvider', () => {
       status: 200,
       statusText: 'OK',
       headers: {},
-      config: {} as unknown,
+      config: {
+        url: '/auth/login',
+        method: 'post',
+        headers: {},
+        data: {},
+      } as never,
     } as const);
 
     const { unmount: unmount3 } = renderWithProviders(

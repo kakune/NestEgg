@@ -93,6 +93,22 @@ export interface TransactionWithDetails extends Transaction {
   };
 }
 
+// Type to transform BigInt to number and Date to string recursively
+type TransformBigIntAndDate<T> = T extends bigint
+  ? number
+  : T extends Date
+    ? string
+    : T extends (infer U)[]
+      ? TransformBigIntAndDate<U>[]
+      : T extends object
+        ? { [K in keyof T]: TransformBigIntAndDate<T[K]> }
+        : T;
+
+// Transformed types for API responses
+export type TransformedTransaction = TransformBigIntAndDate<Transaction>;
+export type TransformedTransactionWithDetails =
+  TransformBigIntAndDate<TransactionWithDetails>;
+
 @Injectable()
 export class TransactionsService {
   constructor(
@@ -131,7 +147,7 @@ export class TransactionsService {
   async findAll(
     filters: TransactionFilters,
     authContext: AuthContext,
-  ): Promise<TransactionWithDetails[]> {
+  ): Promise<TransformedTransactionWithDetails[]> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const where: Record<string, unknown> = {
         householdId: authContext.householdId,
@@ -146,7 +162,7 @@ export class TransactionsService {
       const sortOrder = filters.sortOrder || 'desc';
       orderBy[sortBy] = sortOrder;
 
-      return prisma.transaction.findMany({
+      const transactions = await prisma.transaction.findMany({
         where,
         include: {
           category: {
@@ -173,13 +189,16 @@ export class TransactionsService {
         take: filters.limit || 100,
         skip: filters.offset || 0,
       });
+
+      // Convert BigInt to number for JSON serialization
+      return transactions.map((t) => this.transformBigIntToNumber(t));
     });
   }
 
   async findOne(
     id: string,
     authContext: AuthContext,
-  ): Promise<TransactionWithDetails> {
+  ): Promise<TransformedTransactionWithDetails> {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const transaction = await prisma.transaction.findFirst({
         where: {
@@ -213,14 +232,15 @@ export class TransactionsService {
         throw new NotFoundException('Transaction not found');
       }
 
-      return transaction;
+      // Convert BigInt to number for JSON serialization
+      return this.transformBigIntToNumber(transaction);
     });
   }
 
   async create(
     createTransactionDto: CreateTransactionDto,
     authContext: AuthContext,
-  ): Promise<Transaction> {
+  ): Promise<TransformedTransaction> {
     // Comprehensive validation
     await this.validateTransaction(createTransactionDto, authContext);
 
@@ -259,21 +279,45 @@ export class TransactionsService {
         householdId: authContext.householdId,
       };
 
-      return prisma.transaction.create({
+      const transaction = await prisma.transaction.create({
         data: createData,
         include: {
           category: true,
           payerActor: true,
         },
       });
+
+      // Convert BigInt to number for JSON serialization
+      return this.transformBigIntToNumber(transaction);
     });
+  }
+
+  private transformBigIntToNumber<T>(obj: T): TransformBigIntAndDate<T> {
+    if (obj === null || obj === undefined)
+      return obj as TransformBigIntAndDate<T>;
+    if (typeof obj === 'bigint')
+      return Number(obj) as TransformBigIntAndDate<T>;
+    if (obj instanceof Date)
+      return obj.toISOString() as TransformBigIntAndDate<T>;
+    if (Array.isArray(obj))
+      return obj.map((item: unknown) =>
+        this.transformBigIntToNumber(item),
+      ) as TransformBigIntAndDate<T>;
+    if (typeof obj === 'object') {
+      const transformed: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(obj)) {
+        transformed[key] = this.transformBigIntToNumber(value);
+      }
+      return transformed as TransformBigIntAndDate<T>;
+    }
+    return obj as TransformBigIntAndDate<T>;
   }
 
   async update(
     id: string,
     updateTransactionDto: UpdateTransactionDto,
     authContext: AuthContext,
-  ): Promise<Transaction> {
+  ): Promise<TransformedTransaction> {
     const existingTransaction = await this.findOne(id, authContext);
 
     // Create a merged dto for validation
@@ -291,7 +335,7 @@ export class TransactionsService {
     return this.prismaService.withContext(authContext, async (prisma) => {
       const dbData = this.convertDtoToDbData(updateTransactionDto);
 
-      return prisma.transaction.update({
+      const transaction = await prisma.transaction.update({
         where: { id },
         data: dbData,
         include: {
@@ -299,6 +343,9 @@ export class TransactionsService {
           payerActor: true,
         },
       });
+
+      // Convert BigInt to number for JSON serialization
+      return this.transformBigIntToNumber(transaction);
     });
   }
 

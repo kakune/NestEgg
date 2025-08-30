@@ -1,7 +1,6 @@
 import {
   IsEnum,
   IsInt,
-  Min,
   IsDateString,
   IsUUID,
   IsString,
@@ -20,7 +19,6 @@ export class UpdateTransactionDto {
 
   @IsOptional()
   @IsInt({ message: 'Amount must be an integer' })
-  @Min(1, { message: 'Amount must be a positive integer' })
   @Type(() => Number)
   amount_yen?: number;
 
