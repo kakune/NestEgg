@@ -21,6 +21,7 @@ const mockCategories: Array<{
   budgetLimit: number | null;
   parentId: string | null;
   householdId: string;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }> = [
@@ -33,6 +34,7 @@ const mockCategories: Array<{
     budgetLimit: null,
     parentId: null,
     householdId: '1',
+    isActive: true,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
   },
@@ -45,6 +47,7 @@ const mockCategories: Array<{
     budgetLimit: null,
     parentId: null,
     householdId: '1',
+    isActive: true,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
   },
@@ -68,6 +71,9 @@ const mockTransactions: Array<{
   date: string;
   amount: number;
   type: string;
+  categoryId: string;
+  actorId: string;
+  householdId: string;
   notes: string;
   tags: string[];
   shouldPay: boolean;
@@ -81,6 +87,9 @@ const mockTransactions: Array<{
     date: '2024-01-01',
     amount: 1000,
     type: 'EXPENSE',
+    categoryId: '1',
+    actorId: '1',
+    householdId: '1',
     notes: 'Test transaction',
     tags: ['test'],
     shouldPay: true,
@@ -208,6 +217,7 @@ export const handlers = [
     const newTransaction = {
       id: String(Date.now()),
       ...body,
+      householdId: '1',
       notes: body.notes || '',
       tags: body.tags || [],
       shouldPay: body.shouldPay || false,
@@ -304,6 +314,7 @@ export const handlers = [
       budgetLimit: body.budgetLimit || null,
       parentId: body.parentId || null,
       householdId: '1',
+      isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -698,6 +709,15 @@ export const handlers = [
     };
 
     return HttpResponse.json({ data: finalizedSettlement });
+  }),
+
+  // Health check endpoints (for both ports)
+  http.get('http://localhost:3000/health', () => {
+    return HttpResponse.json({ status: 'OK', timestamp: new Date().toISOString() });
+  }),
+
+  http.get('http://localhost:3001/health', () => {
+    return HttpResponse.json({ status: 'OK', timestamp: new Date().toISOString() });
   }),
 
   // CSV Import/Export endpoints

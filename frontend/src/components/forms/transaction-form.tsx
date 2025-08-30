@@ -82,9 +82,9 @@ export function TransactionForm({
   });
 
   // Filter categories by type
-  const filteredCategories = categories.filter(
-    (category: { type: TransactionType }) => category.type === selectedType
-  );
+  const filteredCategories = Array.isArray(categories) 
+    ? categories.filter((category: { type: TransactionType }) => category.type === selectedType)
+    : [];
 
   const createMutation = useMutation({
     mutationFn: apiHelpers.createTransaction,
@@ -270,11 +270,11 @@ export function TransactionForm({
                     <SelectValue placeholder="Select actor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {actors.map((actor: { id: string; name: string; kind: string }) => (
+                    {Array.isArray(actors) ? actors.map((actor: { id: string; name: string; kind: string }) => (
                       <SelectItem key={actor.id} value={actor.id}>
                         {actor.name} ({actor.kind})
                       </SelectItem>
-                    ))}
+                    )) : null}
                   </SelectContent>
                 </Select>
               )}

@@ -1,6 +1,9 @@
 require('@testing-library/jest-dom');
 require('whatwg-fetch');
 
+// Set environment variables for testing
+process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000/api/v1';
+
 // Polyfill TextEncoder/TextDecoder for Node.js
 global.TextEncoder = require('util').TextEncoder;
 global.TextDecoder = require('util').TextDecoder;
@@ -147,6 +150,10 @@ Object.defineProperty(window, 'ResizeObserver', {
   configurable: true,
   value: ResizeObserverMock,
 });
+
+// Set up MSW
+const { setupMSW } = require('./src/test-utils/msw.ts');
+setupMSW();
 
 // Reset all mocks before each test
 beforeEach(() => {
